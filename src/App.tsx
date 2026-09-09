@@ -4,9 +4,17 @@ import GamesPage from './pages/GamesPage';
 import SavesPage from './pages/SavesPage';
 import SavePage from './pages/SavePage';
 import SeasonPage from './pages/SeasonPage';
+import PlayerProfilePage from './pages/PlayerProfilePage';
+import CareerPage from './pages/CareerPage';
+import CompetitionPage from './pages/CompetitionPage';
+import RivalsPage from './pages/RivalsPage';
+import RivalDetailPage from './pages/RivalDetailPage';
+import ManagerProfilePage from './pages/ManagerProfilePage';
+import DashboardPage from './pages/DashboardPage';
 import SettingsModal from './components/SettingsModal';
 import { useLang } from './lib/i18n';
 import { applyToDom } from './lib/theme';
+import { APP_NAME } from './lib/changelog';
 
 export default function App() {
   const { t } = useLang();
@@ -17,14 +25,15 @@ export default function App() {
   return (
     <div className="min-h-full flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       <header className="border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/80 backdrop-blur px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
-        <Link to="/" className="font-bold tracking-tight text-lg text-slate-900 dark:text-slate-100">
-          {t('app_title')}
+        <Link to="/" className="flex items-center gap-2 font-bold tracking-tight text-lg text-slate-900 dark:text-slate-100">
+          <img src="/app-logo.png" alt="" className="w-8 h-8 rounded-md object-cover" />
+          <span>{APP_NAME}</span>
         </Link>
         <button
           onClick={() => setSettingsOpen(true)}
           className="ml-auto text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800"
-          aria-label="Settings"
-          title="Settings"
+          aria-label={t('settings')}
+          title={t('settings')}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="3" />
@@ -37,7 +46,14 @@ export default function App() {
           <Route path="/" element={<GamesPage />} />
           <Route path="/game/:edition" element={<SavesPage />} />
           <Route path="/save/:saveId" element={<SavePage />} />
+          <Route path="/save/:saveId/career" element={<CareerPage />} />
+          <Route path="/save/:saveId/competition" element={<CompetitionPage />} />
+          <Route path="/save/:saveId/rivals" element={<RivalsPage />} />
+          <Route path="/save/:saveId/rivals/:rivalId" element={<RivalDetailPage />} />
+          <Route path="/save/:saveId/dashboard" element={<DashboardPage />} />
           <Route path="/season/:seasonId" element={<SeasonPage />} />
+          <Route path="/player/:playerId" element={<PlayerProfilePage />} />
+          <Route path="/manager" element={<ManagerProfilePage />} />
         </Routes>
       </main>
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}

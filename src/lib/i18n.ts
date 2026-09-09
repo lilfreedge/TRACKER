@@ -6,17 +6,14 @@ const STORAGE_KEY = 'lang';
 
 const dict = {
   en: {
-    // header
-    app_title: 'Career Tracker',
+    app_title: 'Video juegos y más',
     tagline: 'EA Sports FC',
-    // games page
     games: 'Games',
     games_subtitle: 'Pick the game edition you want to work on.',
     new_game: 'New game (e.g. EAFC 27)',
     add: 'Add',
     saves_count: (n: number) => `${n} save${n === 1 ? '' : 's'}`,
     empty_games: 'No games yet. Create one above.',
-    // saves page
     back_games: '← Games',
     your_saves: 'Your saves',
     saves_subtitle: 'Each save is an independent career.',
@@ -24,7 +21,6 @@ const dict = {
     empty_saves: 'No saves yet in this game. Create one above.',
     delete: 'Delete',
     confirm_delete_save: 'Delete this save and all its data?',
-    // save page
     back_saves: '← Saves',
     seasons: 'seasons',
     new_season: 'New season',
@@ -33,10 +29,12 @@ const dict = {
     team_placeholder: 'Team (e.g. MANCHESTER UNITED)',
     formation_placeholder: 'Formation (4-3-3)',
     color_placeholder: 'Team color hex (#DA291C)',
+    club_since_placeholder: 'Since year (e.g. 2037)',
+    national_team_placeholder: 'National team (optional)',
+    national_since_placeholder: 'National since year',
     save_btn: 'Save',
     cancel: 'Cancel',
     current: 'Current',
-    // season page
     back_save: '← Save',
     starting: 'Starting XI',
     bench: 'Bench',
@@ -44,7 +42,7 @@ const dict = {
     loaned: 'Loaned',
     no_players: 'No players.',
     from: 'from',
-    // table headers
+    since: 'since',
     th_num: '#',
     th_pos: 'Pos',
     th_name: 'Name',
@@ -52,10 +50,54 @@ const dict = {
     th_ovr: 'OVR',
     th_nat: 'Nationality',
     th_since: 'Since',
-    loading: 'Loading...',
+    loading: 'Loading…',
+    settings: 'Settings',
+    // v1.2 additions
+    career: 'Career',
+    current_season: 'Current season',
+    competition: 'Competition',
+    rivals: 'Rivals',
+    dashboard: 'Dashboard',
+    manager_profile: 'Manager profile',
+    club_squad: 'Club Squad',
+    international_squad: 'International Squad',
+    no_intl: 'Not managing a national team this season.',
+    registered: 'Registered',
+    value: 'Value',
+    wage: 'Wage',
+    per_week: '/wk',
+    contract_ends: 'Contract until',
+    salary_history: 'Salary history',
+    injuries: 'Injuries',
+    transfers: 'Transfers',
+    ex_players: 'Ex-players',
+    objectives: 'Season objectives',
+    awards: 'Awards',
+    reason_benched: 'Reason benched',
+    reason_lack_minutes: 'Lack of minutes',
+    reason_bad_perf: 'Bad performance in club',
+    // rivals
+    new_rival: 'New rival',
+    rival_placeholder: 'Rival team (e.g. Barcelona)',
+    logo_url_placeholder: 'Logo URL (optional)',
+    matches: 'Matches',
+    wins: 'Wins',
+    draws: 'Draws',
+    losses: 'Losses',
+    goals_for: 'GF',
+    goals_against: 'GA',
+    new_match: 'New match',
+    // manager
+    manager_name: 'Manager name',
+    nickname: 'Nickname',
+    started_year: 'Career started',
+    nationality: 'Nationality',
+    bio: 'Bio',
+    upload_photo: 'Upload photo',
+    remove_photo: 'Remove photo',
   },
   es: {
-    app_title: 'Career Tracker',
+    app_title: 'Video juegos y más',
     tagline: 'EA Sports FC',
     games: 'Juegos',
     games_subtitle: 'Elige el juego con el que quieres trabajar.',
@@ -78,6 +120,9 @@ const dict = {
     team_placeholder: 'Equipo (ej: MANCHESTER UNITED)',
     formation_placeholder: 'Formación (4-3-3)',
     color_placeholder: 'Color equipo hex (#DA291C)',
+    club_since_placeholder: 'Año que llegaste (ej: 2037)',
+    national_team_placeholder: 'Selección nacional (opcional)',
+    national_since_placeholder: 'Año selección',
     save_btn: 'Guardar',
     cancel: 'Cancelar',
     current: 'Actual',
@@ -88,6 +133,7 @@ const dict = {
     loaned: 'Cedidos',
     no_players: 'Sin jugadores.',
     from: 'desde',
+    since: 'desde',
     th_num: '#',
     th_pos: 'Pos',
     th_name: 'Nombre',
@@ -95,20 +141,57 @@ const dict = {
     th_ovr: 'OVR',
     th_nat: 'Nacionalidad',
     th_since: 'Desde',
-    loading: 'Cargando...',
+    loading: 'Cargando…',
+    settings: 'Ajustes',
+    career: 'Carrera',
+    current_season: 'Temporada actual',
+    competition: 'Competición',
+    rivals: 'Rivales',
+    dashboard: 'Panel',
+    manager_profile: 'Ficha del DT',
+    club_squad: 'Plantilla Club',
+    international_squad: 'Selección Nacional',
+    no_intl: 'No estás en ninguna selección esta temporada.',
+    registered: 'Registrada',
+    value: 'Valor',
+    wage: 'Sueldo',
+    per_week: '/sem',
+    contract_ends: 'Contrato hasta',
+    salary_history: 'Historial de sueldos',
+    injuries: 'Lesiones',
+    transfers: 'Transferencias',
+    ex_players: 'Ex-jugadores',
+    objectives: 'Objetivos de temporada',
+    awards: 'Premios',
+    reason_benched: 'Motivo bench',
+    reason_lack_minutes: 'Falta de minutos',
+    reason_bad_perf: 'Mal rendimiento en club',
+    new_rival: 'Nuevo rival',
+    rival_placeholder: 'Equipo rival (ej: Barcelona)',
+    logo_url_placeholder: 'URL del logo (opcional)',
+    matches: 'Partidos',
+    wins: 'Victorias',
+    draws: 'Empates',
+    losses: 'Derrotas',
+    goals_for: 'GF',
+    goals_against: 'GC',
+    new_match: 'Nuevo partido',
+    manager_name: 'Nombre del DT',
+    nickname: 'Apodo',
+    started_year: 'Inicio carrera',
+    nationality: 'Nacionalidad',
+    bio: 'Bio',
+    upload_photo: 'Subir foto',
+    remove_photo: 'Quitar foto',
   },
 };
 
 type DictKey = keyof typeof dict.en;
 
-// simple store
 let current: Lang = ((typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEY)) as Lang) || 'en';
 const listeners = new Set<() => void>();
 
-function subscribe(fn: () => void) {
-  listeners.add(fn);
-  return () => { listeners.delete(fn); };
-}
+function subscribe(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; }
 function getSnapshot(): Lang { return current; }
 
 export function setLang(l: Lang) {

@@ -1,11 +1,30 @@
 export interface ChangelogEntry {
   version: string;
-  date: string;      // ISO-ish
-  changes: string[]; // bullet points
+  date: string;
+  changes: string[];
 }
 
-// Add newest version on TOP. Keep it in sync with the app version.
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.2.0',
+    date: '2026-09-09',
+    changes: [
+      'Rebrand: "Video juegos y más" with new logo throughout.',
+      'SavePage redesign: hero tiles Career / Current Season / Competition / Rivals.',
+      'Player profile page (EAFC card style): photo, position, name, age, flag, value, wage.',
+      'Season header: club "since YYYY", international tab disabled when no national team.',
+      'Registration date behind an ⓘ icon in the season card.',
+      'Loading avatar bigger (240px) and vertically centered.',
+      'Rivals: create rivals with logo, log matches, see W-D-L record + goals for/against.',
+      'Manager profile: editable in-app (photo, name, career start year, nationality, bio).',
+      'Injuries, transfers and ex-players sections in season.',
+      'Salary + contract editable per player + salary history view.',
+      'Season summary carry-over (previous season results auto-populate).',
+      '"Reason why benched" badge (LACK OF MINUTES / BAD PERF).',
+      'Nationality flags 🇫🇷 🇪🇸 🇧🇷 everywhere.',
+      'Player seed for Manchester United 2037-2038 now has jerseys, ages, nationalities filled.',
+    ],
+  },
   {
     version: '1.1.0',
     date: '2026-09-09',
@@ -20,7 +39,6 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Salary + contract fields on players. Salary history view.',
     ],
   },
-  // v2 planned: multi-user login (username + password) with per-user data isolation.
   {
     version: '1.0.0',
     date: '2026-09-09',
@@ -33,3 +51,4 @@ export const CHANGELOG: ChangelogEntry[] = [
 ];
 
 export const APP_VERSION = CHANGELOG[0].version;
+export const APP_NAME = 'Video juegos y más';

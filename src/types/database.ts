@@ -1,5 +1,3 @@
-// Types matching the SQL schema (001_initial_schema.sql)
-
 export type SquadRole = 'starting' | 'bench' | 'reserve' | 'loaned';
 
 export interface CareerSave {
@@ -25,6 +23,12 @@ export interface Season {
   end_date: string | null;
   is_current: boolean;
   notes: string | null;
+  club_since_year: number | null;
+  national_team: string | null;
+  national_team_color: string | null;
+  national_team_text_color: string | null;
+  national_team_since_year: number | null;
+  notes_previous_summary: any | null;
   created_at: string;
 }
 
@@ -49,33 +53,50 @@ export interface SquadPlayer {
   salary_period: 'week' | 'year' | null;
   contract_ends: number | null;
   salary_notes: string | null;
+  market_value: number | null;
+  market_value_currency: string | null;
+  benched_reason: string | null;
   created_at: string;
 }
 
-export interface PlayerSalaryHistoryRow {
-  player_name: string;
-  save_id: string;
-  season_label: string;
-  team: string | null;
-  role: string;
-  ovr: number | null;
-  amount: number;
-  currency: string;
-  period: string;
-  contract_ends: number | null;
-  notes: string | null;
-  source: 'squad' | 'ex_players';
-  created_at: string;
-}
-
-export interface SeasonResult {
+export interface ManagerProfile {
   id: string;
-  season_id: string;
-  competition_id: string | null;
-  competition_name_snapshot: string;
-  result: string | null;
-  opponent: string | null;
-  score: string | null;
+  owner_email: string;
+  display_name: string | null;
+  nickname: string | null;
+  photo_url: string | null;
+  career_started_year: number | null;
+  nationality: string | null;
+  bio: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Rival {
+  id: string;
+  save_id: string;
+  rival_team: string;
+  rival_country: string | null;
+  rival_color: string | null;
+  notes: string | null;
+  created_at: string;
+  crest_url?: string | null; // via storage; alias
+}
+
+export interface Match {
+  id: string;
+  save_id: string;
+  season_id: string | null;
+  rival_id: string | null;
+  match_date: string | null;
+  competition: string | null;
+  venue: string | null;
+  home_team: string | null;
+  away_team: string | null;
+  home_goals: number | null;
+  away_goals: number | null;
+  result: 'W' | 'D' | 'L' | null;
+  scorers: string | null;
   notes: string | null;
   created_at: string;
 }
@@ -146,5 +167,17 @@ export interface CompetitionChampion {
   runners_up: number;
   years_won: string | null;
   years_runner_up: string | null;
+  created_at: string;
+}
+
+export interface SeasonResult {
+  id: string;
+  season_id: string;
+  competition_id: string | null;
+  competition_name_snapshot: string;
+  result: string | null;
+  opponent: string | null;
+  score: string | null;
+  notes: string | null;
   created_at: string;
 }
