@@ -8,6 +8,7 @@ export interface CareerSave {
   name: string;
   notes: string | null;
   is_active: boolean;
+  game_edition: string;
   created_at: string;
 }
 
