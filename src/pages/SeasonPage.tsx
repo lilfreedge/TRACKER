@@ -3,10 +3,13 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useLang } from '../lib/i18n';
 import Loading from '../components/Loading';
+import InjuriesSection from '../components/InjuriesSection';
+import TransfersSection from '../components/TransfersSection';
+import ExPlayersSection from '../components/ExPlayersSection';
 import { flagFor, niceName } from '../lib/countries';
 import type { Season, SquadPlayer, SquadRole, NationalSquadEntry } from '../types/database';
 
-type Tab = 'club' | 'international';
+type Tab = 'club' | 'international' | 'injuries' | 'transfers' | 'ex_players';
 
 const ROLE_ORDER: SquadRole[] = ['starting', 'bench', 'reserve', 'loaned'];
 
@@ -38,9 +41,7 @@ export default function SeasonPage() {
   if (loading) return <Loading />;
   if (!season) return <div className="text-slate-500 dark:text-slate-400">Season not found.</div>;
 
-  const grouped: Record<SquadRole, SquadPlayer[]> = {
-    starting: [], bench: [], reserve: [], loaned: [],
-  };
+  const grouped: Record<SquadRole, SquadPlayer[]> = { starting: [], bench: [], reserve: [], loaned: [] };
   for (const p of players) grouped[p.role].push(p);
 
   const hasIntl = !!season.national_team;
@@ -64,46 +65,50 @@ export default function SeasonPage() {
 
       <div className="mt-3 rounded-lg p-5 mb-4" style={{ background: bannerBg, color: bannerText }}>
         <div className="text-sm opacity-80">{season.label}</div>
-        <div className="text-2xl font-bold mt-1 flex items-center gap-3">
+        <div className="text-2xl font-bold mt-1 flex items-center gap-3 flex-wrap">
           <span>{bannerTitle ?? '—'}</span>
           {bannerSince && <span className="text-sm opacity-80 font-normal">· {t('since')} {bannerSince}</span>}
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-1 border-b border-slate-200 dark:border-slate-800 mb-4 overflow-x-auto">
-        <button
-          onClick={() => setTab('club')}
-          className={`px-4 py-2 text-sm whitespace-nowrap border-b-2 transition ${
-            tab === 'club'
-              ? 'border-emerald-600 text-slate-900 dark:text-slate-100 font-medium'
-              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-          }`}
-        >
-          {t('club_squad')}
-        </button>
-        <button
+        <TabButton active={tab === 'club'} onClick={() => setTab('club')}>{t('club_squad')}</TabButton>
+        <TabButton
+          active={tab === 'international'}
           onClick={() => hasIntl && setTab('international')}
           disabled={!hasIntl}
-          className={`px-4 py-2 text-sm whitespace-nowrap border-b-2 transition ${
-            !hasIntl
-              ? 'border-transparent text-slate-300 dark:text-slate-700 cursor-not-allowed'
-              : tab === 'international'
-                ? 'border-emerald-600 text-slate-900 dark:text-slate-100 font-medium'
-                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-          }`}
           title={!hasIntl ? t('no_intl') : ''}
-        >
-          {t('international_squad')}
-        </button>
+        >{t('international_squad')}</TabButton>
+        <TabButton active={tab === 'injuries'} onClick={() => setTab('injuries')}>{t('injuries')}</TabButton>
+        <TabButton active={tab === 'transfers'} onClick={() => setTab('transfers')}>{t('transfers')}</TabButton>
+        <TabButton active={tab === 'ex_players'} onClick={() => setTab('ex_players')}>{t('ex_players')}</TabButton>
       </div>
 
-      {tab === 'club' ? (
-        <ClubSquad t={t} grouped={grouped} onPlayerClick={(id) => navigate(`/player/${id}`)} />
-      ) : (
-        <InternationalSquad t={t} entries={national} country={season.national_team ?? '?'} />
-      )}
+      {tab === 'club' && <ClubSquad t={t} grouped={grouped} onPlayerClick={(id) => navigate(`/player/${id}`)} />}
+      {tab === 'international' && <InternationalSquad t={t} entries={national} country={season.national_team ?? '?'} />}
+      {tab === 'injuries' && <InjuriesSection seasonId={season.id} />}
+      {tab === 'transfers' && <TransfersSection seasonId={season.id} />}
+      {tab === 'ex_players' && <ExPlayersSection seasonId={season.id} />}
     </div>
+  );
+}
+
+function TabButton({ active, disabled, children, onClick, title }: {
+  active: boolean; disabled?: boolean; children: React.ReactNode; onClick: () => void; title?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className={`px-4 py-2 text-sm whitespace-nowrap border-b-2 transition ${
+        disabled
+          ? 'border-transparent text-slate-300 dark:text-slate-700 cursor-not-allowed'
+          : active
+            ? 'border-emerald-600 text-slate-900 dark:text-slate-100 font-medium'
+            : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+      }`}
+    >{children}</button>
   );
 }
 

@@ -6,6 +6,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.2.1',
+    date: '2026-09-09',
+    changes: [
+      'Loading screen: giant avatar (up to 560px), no circular frame, pulse + shimmer animation.',
+      'Season page: three new tabs — Injuries, Transfers (IN / OUT), Ex-players. Fully editable in-app.',
+      'Serverless endpoint /api/fetch-photo prepared for future auto-photo lookup (FUTBIN + Wikipedia).',
+    ],
+  },
+  {
     version: '1.2.0',
     date: '2026-09-09',
     changes: [
