@@ -41,7 +41,10 @@ export default function CareerPage() {
   return (
     <div>
       <Link to={`/save/${saveId}`} className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 text-sm">{t('back_save')}</Link>
-      <h1 className="text-2xl font-bold mt-2 mb-6">{t('career')} · {save.name}</h1>
+      <div className="mt-2 mb-6 flex items-center justify-between gap-3 flex-wrap">
+        <h1 className="text-2xl font-bold">{t('career')} · {save.name}</h1>
+        <Link to={`/save/${saveId}/awards`} className="text-xs border border-slate-300 dark:border-slate-700 hover:border-emerald-400 rounded-full px-3 py-1.5 transition">🏆 Awards</Link>
+      </div>
       <div className="grid grid-cols-3 gap-3 mb-6">
         {[['Seasons', seasons.length], ['Trophies', total], ['Teams', new Set(seasons.map((s) => s.team_name_snapshot)).size]].map(([l, v]) => (
           <div key={l as string} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4">

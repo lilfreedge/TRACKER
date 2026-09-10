@@ -15,6 +15,7 @@ import ContractsPage from './pages/ContractsPage';
 import CompareSeasonsPage from './pages/CompareSeasonsPage';
 import SearchPage from './pages/SearchPage';
 import AwardsPage from './pages/AwardsPage';
+import LeagueDetailPage from './pages/LeagueDetailPage';
 import SettingsModal from './components/SettingsModal';
 import { useLang } from './lib/i18n';
 import { applyToDom } from './lib/theme';
@@ -50,6 +51,7 @@ export default function App() {
           <Route path="/save/:saveId" element={<SavePage />} />
           <Route path="/save/:saveId/career" element={<CareerPage />} />
           <Route path="/save/:saveId/competition" element={<CompetitionPage />} />
+          <Route path="/save/:saveId/competition/:name" element={<LeagueDetailPage />} />
           <Route path="/save/:saveId/rivals" element={<RivalsPage />} />
           <Route path="/save/:saveId/rivals/:rivalId" element={<RivalDetailPage />} />
           <Route path="/save/:saveId/dashboard" element={<DashboardPage />} />

@@ -1,13 +1,20 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLang } from '../lib/i18n';
 import { useTheme } from '../lib/theme';
 import { CHANGELOG, APP_VERSION, APP_NAME } from '../lib/changelog';
+import { supabase } from '../lib/supabase';
 
 export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const { lang, setLang } = useLang();
   const { theme, setTheme } = useTheme();
   const [showChangelog, setShowChangelog] = useState(false);
+  const [highlightYear, setHighlightYear] = useState('2026');
+  useEffect(() => { (async () => { const { data } = await supabase.from('preferences').select('value').eq('key', 'highlight_from_year').maybeSingle(); if (data?.value) setHighlightYear(String(data.value)); })(); }, []);
+  async function saveHighlightYear(v: string) {
+    setHighlightYear(v);
+    await supabase.from('preferences').upsert({ key: 'highlight_from_year', value: v, updated_at: new Date().toISOString() });
+  }
   return (
     <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-start sm:items-center justify-center p-3" onClick={onClose}>
       <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-800 rounded-lg w-full max-w-lg max-h-[85vh] overflow-y-auto shadow-xl" onClick={(e) => e.stopPropagation()}>
@@ -40,6 +47,11 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
           <div className="text-xs text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800 rounded p-3 bg-slate-50 dark:bg-slate-800/40">
             <div className="mb-1"><span className="font-medium">Currency:</span> EUR</div>
             <div><span className="font-medium">Salary period:</span> per week</div>
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">Highlight seasons from year</div>
+            <input type="number" value={highlightYear} onChange={(e) => saveHighlightYear(e.target.value)} className="w-32 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-1.5 text-sm" />
+            <div className="text-xs text-slate-500 mt-1">Seasons from this year onwards are visually highlighted in Competition tables.</div>
           </div>
           <button onClick={() => setShowChangelog(true)} className="w-full text-left bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 rounded p-3 hover:border-emerald-400 transition flex items-center justify-between">
             <div>

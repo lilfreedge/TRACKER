@@ -45,7 +45,14 @@ export default function SeasonPage() {
   const bannerSince = tab === 'international' && hasIntl ? season.national_team_since_year : season.club_since_year;
   return (
     <div>
-      <Link to={`/save/${season.save_id}`} className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 text-sm">{t('back_save')}</Link>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <Link to={`/save/${season.save_id}`} className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 text-sm">{t('back_save')}</Link>
+        <div className="flex gap-1 text-xs">
+          {[['Career', `/save/${season.save_id}/career`], ['Competition', `/save/${season.save_id}/competition`], ['Rivals', `/save/${season.save_id}/rivals`]].map(([lbl, to]) => (
+            <Link key={to} to={to} className="text-slate-600 dark:text-slate-300 hover:text-emerald-600 border border-slate-200 dark:border-slate-700 hover:border-emerald-400 rounded-full px-3 py-1 transition bg-white dark:bg-slate-900">{lbl}</Link>
+          ))}
+        </div>
+      </div>
       <div className="mt-3 rounded-lg p-5 mb-4" style={{ background: bannerBg, color: bannerText }}>
         <div className="text-sm opacity-80">{season.label}</div>
         <div className="text-2xl font-bold mt-1 flex items-center gap-3 flex-wrap">
@@ -89,8 +96,18 @@ function ClubSquad({ t, grouped, players, onPlayerClick, onReload }: { t: any; g
         }
       } catch {}
     }
-    setBusy(false); setProgress(`${ok} fotos actualizadas`); onReload();
+    setBusy(false); setProgress(ok > 0 ? `${ok} fotos actualizadas` : ''); if (ok > 0) onReload();
   }
+  // Auto-fetch on first render when there are missing photos. Guard with a
+  // per-session marker so re-mounting doesn't re-trigger unnecessarily.
+  useEffect(() => {
+    if (missing.length === 0 || busy) return;
+    const key = 'autoFetch:' + missing.map((p) => p.id).sort().join(',');
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, '1');
+    fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [missing.length]);
   return (
     <>
       {missing.length > 0 && (

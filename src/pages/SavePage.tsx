@@ -19,6 +19,12 @@ export default function SavePage() {
   const [q, setQ] = useState('');
   const [tileOrder, setTileOrder] = useState<TileKey[]>(DEFAULT_ORDER);
   const [showSeasonForm, setShowSeasonForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [eLabel, setELabel] = useState('');
+  const [eNationalTeam, setENationalTeam] = useState('');
+  const [eNationalSinceMonth, setENationalSinceMonth] = useState('');
+  const [eNationalSinceYear, setENationalSinceYear] = useState('');
+  const [eIsCurrent, setEIsCurrent] = useState(false);
   const [nationalTeam, setNationalTeam] = useState('');
   const [nationalSinceMonth, setNationalSinceMonth] = useState('');
   const [nationalSinceYear, setNationalSinceYear] = useState('');
@@ -34,7 +40,14 @@ export default function SavePage() {
     ]);
     setSave(s); setSeasons(se ?? []); setLoading(false);
     try { const stored = localStorage.getItem(`tileOrder:${saveId}`); if (stored) { const parsed = JSON.parse(stored) as TileKey[]; if (parsed.every((k) => DEFAULT_ORDER.includes(k))) setTileOrder(parsed); } } catch {}
-    if (se && se.length) { const first = se[0].label; const m = /^(\d{4})-(\d{4})$/.exec(first); if (m) { const y2 = Number(m[2]); setLabel(`${y2}-${y2 + 1}`); } } else { setLabel('2037-2038'); }
+    if (se && se.length) {
+      // Find the season with the highest ending year across all seasons, so
+      // the next-season suggestion always increments from the latest season
+      // regardless of sort_order or drag reorder.
+      let maxEnd = 0;
+      for (const s of se) { const m = /^(\d{4})-(\d{4})$/.exec(s.label); if (m) { const y2 = Number(m[2]); if (y2 > maxEnd) maxEnd = y2; } }
+      if (maxEnd > 0) { setLabel(`${maxEnd}-${maxEnd + 1}`); setNationalSinceYear(String(maxEnd)); }
+    } else { setLabel('2037-2038'); setNationalSinceYear('2037'); }
   }
   useEffect(() => { load(); }, [saveId]);
 
@@ -46,6 +59,36 @@ export default function SavePage() {
     setLabel(''); setNationalTeam(''); setNationalSinceMonth(''); setNationalSinceYear(''); setShowSeasonForm(false); load();
   }
 
+  function startEdit(s: Season) {
+    setEditingId(s.id);
+    setELabel(s.label);
+    setENationalTeam(s.national_team ?? '');
+    setENationalSinceMonth(s.national_since_month ? String(s.national_since_month) : '');
+    setENationalSinceYear(s.national_team_since_year ? String(s.national_team_since_year) : '');
+    setEIsCurrent(!!s.is_current);
+  }
+  function cancelEdit() { setEditingId(null); }
+  async function saveEdit() {
+    if (!editingId) return;
+    const payload: any = {
+      label: eLabel.trim(),
+      national_team: eNationalTeam.trim() || null,
+      national_team_since_year: eNationalSinceYear ? Number(eNationalSinceYear) : null,
+      national_since_month: eNationalSinceMonth ? Number(eNationalSinceMonth) : null,
+      is_current: eIsCurrent,
+    };
+    // If setting current, unset current on the other seasons of this save
+    if (eIsCurrent && saveId) {
+      await supabase.from('seasons').update({ is_current: false }).eq('save_id', saveId).neq('id', editingId);
+    }
+    const { error } = await supabase.from('seasons').update(payload).eq('id', editingId);
+    if (error) { alert('Error: ' + error.message); return; }
+    setEditingId(null); load();
+  }
+  async function deleteSeason(s: Season) {
+    if (!confirm(`Delete season "${s.label}"?`)) return;
+    await supabase.from('seasons').delete().eq('id', s.id); load();
+  }
   async function onDrop(targetId: string) {
     const sourceId = dragId.current;
     if (!sourceId || sourceId === targetId) return;
@@ -112,7 +155,7 @@ export default function SavePage() {
 
       {/* Sub-nav */}
       <div className="flex flex-wrap gap-2 mb-6 text-xs">
-        {[['Dashboard', `/save/${saveId}/dashboard`], ['Compare', `/save/${saveId}/compare`], ['Contracts', `/save/${saveId}/contracts`], ['Awards', `/save/${saveId}/awards`], ['Manager', `/save/${saveId}/manager`]].map(([lbl, to]) => (
+        {[['Compare', `/save/${saveId}/compare`], ['Manager', `/save/${saveId}/manager`]].map(([lbl, to]) => (
           <Link key={to} to={to} className="text-slate-500 hover:text-emerald-600 border border-slate-200 dark:border-slate-800 rounded-full px-3 py-1 transition">{lbl}</Link>
         ))}
       </div>
@@ -121,7 +164,10 @@ export default function SavePage() {
         <div className="bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 rounded-lg p-4 mb-4 grid gap-2 sm:grid-cols-4">
           <input autoFocus value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Label (e.g. 2038-2039)" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm" />
           <input value={nationalTeam} onChange={(e) => setNationalTeam(e.target.value)} placeholder="National team (optional)" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm" />
-          <input value={nationalSinceMonth} onChange={(e) => setNationalSinceMonth(e.target.value)} placeholder="Since month" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm" />
+          <input list="month-options" value={nationalSinceMonth} onChange={(e) => setNationalSinceMonth(e.target.value)} placeholder="Since month" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm" />
+          <datalist id="month-options">
+            <option value="jan" /><option value="feb" /><option value="mar" /><option value="apr" /><option value="may" /><option value="jun" /><option value="jul" /><option value="aug" /><option value="sep" /><option value="oct" /><option value="nov" /><option value="dec" />
+          </datalist>
           <input value={nationalSinceYear} onChange={(e) => setNationalSinceYear(e.target.value)} placeholder="Since year" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm" />
           <div className="sm:col-span-4 flex justify-end gap-2"><button onClick={() => setShowSeasonForm(false)} className="text-sm px-3 py-2 text-slate-500">Cancel</button><button onClick={createSeason} className="bg-emerald-600 text-white rounded px-4 py-2 text-sm">Create</button></div>
         </div>
@@ -137,7 +183,21 @@ export default function SavePage() {
         <div className="text-slate-500 border border-dashed border-slate-300 dark:border-slate-700 rounded p-8 text-center bg-white dark:bg-slate-900">{q ? 'No matches.' : 'No seasons yet.'}</div>
       ) : (
         <div className="grid gap-2">
-          {filtered.map((s) => (
+          {filtered.map((s) => editingId === s.id ? (
+            <div key={s.id} className="bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 rounded-lg p-4 grid gap-2 sm:grid-cols-4">
+              <input value={eLabel} onChange={(e) => setELabel(e.target.value)} placeholder="Label" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm" />
+              <input value={eNationalTeam} onChange={(e) => setENationalTeam(e.target.value)} placeholder="National team" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm" />
+              <input value={eNationalSinceMonth} onChange={(e) => setENationalSinceMonth(e.target.value)} placeholder="Since month (1-12)" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm" />
+              <input value={eNationalSinceYear} onChange={(e) => setENationalSinceYear(e.target.value)} placeholder="Since year" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm" />
+              <label className="sm:col-span-4 flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                <input type="checkbox" checked={eIsCurrent} onChange={(e) => setEIsCurrent(e.target.checked)} /> Mark as current season
+              </label>
+              <div className="sm:col-span-4 flex justify-between gap-2">
+                <button onClick={() => deleteSeason(s)} className="text-xs text-red-500 hover:text-red-400">Delete season</button>
+                <div className="flex gap-2"><button onClick={cancelEdit} className="text-sm px-3 py-2 text-slate-500">Cancel</button><button onClick={saveEdit} className="bg-emerald-600 text-white rounded px-4 py-2 text-sm">Save</button></div>
+              </div>
+            </div>
+          ) : (
             <div key={s.id}
               draggable
               onDragStart={() => { dragId.current = s.id; }}
@@ -150,6 +210,7 @@ export default function SavePage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-slate-900 dark:text-slate-100">{s.label}</span>
                     {s.is_current && <span className="text-[10px] uppercase font-bold text-emerald-700 bg-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-300 px-2 py-0.5 rounded">Current</span>}
+                    {s.national_team && <span className="text-[10px] uppercase font-bold text-blue-700 bg-blue-100 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded">🌍 {s.national_team}</span>}
                   </div>
                   <div className="text-xs text-slate-500 mt-0.5 truncate">
                     {s.team_name_snapshot ? <span className="font-medium text-slate-700 dark:text-slate-300">{s.team_name_snapshot}</span> : <span>—</span>}
@@ -158,6 +219,8 @@ export default function SavePage() {
                 </div>
                 <svg className="w-4 h-4 text-slate-300 group-hover:text-emerald-500 transition shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
               </Link>
+              <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); startEdit(s); }} className="px-2 text-slate-400 hover:text-emerald-500 text-sm" title="Edit season">✎</button>
+              <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); deleteSeason(s); }} className="px-3 text-slate-400 hover:text-red-500 text-lg" title="Delete season">×</button>
             </div>
           ))}
         </div>
