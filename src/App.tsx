@@ -14,6 +14,7 @@ import DashboardPage from './pages/DashboardPage';
 import ContractsPage from './pages/ContractsPage';
 import CompareSeasonsPage from './pages/CompareSeasonsPage';
 import SearchPage from './pages/SearchPage';
+import AwardsPage from './pages/AwardsPage';
 import SettingsModal from './components/SettingsModal';
 import { useLang } from './lib/i18n';
 import { applyToDom } from './lib/theme';
@@ -27,7 +28,7 @@ export default function App() {
     <div className="min-h-full flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       <header className="border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/80 backdrop-blur px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
         <Link to="/" className="flex items-center gap-2 font-bold tracking-tight text-lg text-slate-900 dark:text-slate-100">
-          <img src="/app-logo.png" alt="Logo" className="w-10 h-10 rounded-lg object-cover ring-2 ring-emerald-500/40" />
+          <img src="/app-logo.png" alt="Logo" className="w-10 h-10 object-contain" />
           <span>{APP_NAME}</span>
         </Link>
         <Link to="/search" className="ml-auto text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800" title="Search" aria-label="Search">
@@ -45,7 +46,7 @@ export default function App() {
       <main className="flex-1 p-4 max-w-6xl w-full mx-auto">
         <Routes>
           <Route path="/" element={<GamesPage />} />
-          <Route path="/game/:edition" element={<SavesPage />} />
+          <Route path="/game/:gameName" element={<SavesPage />} />
           <Route path="/save/:saveId" element={<SavePage />} />
           <Route path="/save/:saveId/career" element={<CareerPage />} />
           <Route path="/save/:saveId/competition" element={<CompetitionPage />} />
@@ -54,6 +55,8 @@ export default function App() {
           <Route path="/save/:saveId/dashboard" element={<DashboardPage />} />
           <Route path="/save/:saveId/contracts" element={<ContractsPage />} />
           <Route path="/save/:saveId/compare" element={<CompareSeasonsPage />} />
+          <Route path="/save/:saveId/awards" element={<AwardsPage />} />
+          <Route path="/save/:saveId/manager" element={<ManagerProfilePage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/season/:seasonId" element={<SeasonPage />} />
           <Route path="/player/:playerId" element={<PlayerProfilePage />} />

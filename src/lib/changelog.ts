@@ -1,5 +1,20 @@
 export interface ChangelogEntry { version: string; date: string; changes: string[]; }
 export const CHANGELOG: ChangelogEntry[] = [
+  { version: '1.4.0', date: '2026-09-10', changes: [
+    'Games page: big app logo hero + gradient title.',
+    'Games / Saves / Save pages: unified UX — search bar, Add opens inline form, drag & drop to reorder.',
+    'Game types when adding a new game: EAFC (FIFA), Marvel Rivals (soon), Other. All existing data stays as EAFC.',
+    'Save covers (URL or auto gradient with initials).',
+    'Save page: iconos SVG muted en tiles, botón Contracts al lado de + New season, sub-nav pills (Dashboard / Compare / Contracts / Awards / Manager), buscador de temporadas.',
+    'Season tabs: added Objectives, Gallery, Summary (carry-over).',
+    'Objectives: pending / done / failed badges.',
+    'Gallery: upload season screenshots to `season-photos` bucket with captions.',
+    'Summary: final position, points, top scorer, key moment, next objective — carries over.',
+    'Awards page: /save/:saveId/awards (name, category, recipient, year, notes).',
+    'Manager route: /save/:saveId/manager.',
+    'Settings: Changelog moved behind a button (opens its own modal).',
+    'Header logo: cleaner (no emerald ring).',
+  ] },
   { version: '1.3.0', date: '2026-09-09', changes: [
     'Rebrand: "Video juegos y más" with logo throughout.',
     'Logo cropped to 512x512 (centered on face) with emerald ring in header.',

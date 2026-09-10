@@ -10,6 +10,7 @@ export default function CareerPage() {
   const [save, setSave] = useState<CareerSave | null>(null);
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [results, setResults] = useState<SeasonResult[]>([]);
+  const [scorers, setScorers] = useState<{ player_name: string; goals: number | null }[]>([]);
   const [loading, setLoading] = useState(true);
   async function load() {
     if (!saveId) return;
@@ -20,8 +21,13 @@ export default function CareerPage() {
     ]);
     setSave(s); setSeasons(se ?? []);
     if (se && se.length) {
-      const { data: rs } = await supabase.from('season_results').select('*').in('season_id', se.map((x) => x.id));
+      const ids = se.map((x) => x.id);
+      const [{ data: rs }, { data: sc }] = await Promise.all([
+        supabase.from('season_results').select('*').in('season_id', ids),
+        supabase.from('season_scorers').select('*').in('season_id', ids),
+      ]);
       setResults(rs ?? []);
+      setScorers(sc ?? []);
     }
     setLoading(false);
   }
@@ -54,6 +60,21 @@ export default function CareerPage() {
           </div>
         </div>
       )}
+      {scorers.length > 0 && (() => {
+        const map = new Map<string, number>();
+        for (const s of scorers) map.set(s.player_name, (map.get(s.player_name) ?? 0) + (s.goals ?? 0));
+        const top = [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
+        return (
+          <div className="mb-6">
+            <div className="text-xs uppercase text-slate-500 mb-2">Top scorers (all seasons)</div>
+            <div className="border border-slate-200 dark:border-slate-800 rounded overflow-hidden bg-white dark:bg-slate-900">
+              <table className="w-full text-sm">
+                <tbody>{top.map(([name, goals], i) => (<tr key={name} className="border-t first:border-t-0 border-slate-200 dark:border-slate-800"><td className="px-3 py-2 w-8 text-slate-400 font-mono">{i + 1}</td><td className="px-3 py-2">{name}</td><td className="px-3 py-2 text-right font-bold text-emerald-600">{goals}</td></tr>))}</tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
       <div>
         <div className="text-xs uppercase text-slate-500 mb-2">Season by season</div>
         <div className="grid gap-2">

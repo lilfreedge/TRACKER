@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+// used by ClubSquad below
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useLang } from '../lib/i18n';
@@ -6,9 +7,12 @@ import Loading from '../components/Loading';
 import InjuriesSection from '../components/InjuriesSection';
 import TransfersSection from '../components/TransfersSection';
 import ExPlayersSection from '../components/ExPlayersSection';
+import ObjectivesSection from '../components/ObjectivesSection';
+import GallerySection from '../components/GallerySection';
+import SummarySection from '../components/SummarySection';
 import { flagFor, niceName } from '../lib/countries';
 import type { Season, SquadPlayer, SquadRole, NationalSquadEntry } from '../types/database';
-type Tab = 'club' | 'international' | 'injuries' | 'transfers' | 'ex_players';
+type Tab = 'club' | 'international' | 'injuries' | 'transfers' | 'ex_players' | 'objectives' | 'gallery' | 'summary';
 const ROLE_ORDER: SquadRole[] = ['starting', 'bench', 'reserve', 'loaned'];
 export default function SeasonPage() {
   const { seasonId } = useParams();
@@ -50,22 +54,51 @@ export default function SeasonPage() {
         </div>
       </div>
       <div className="flex gap-1 border-b border-slate-200 dark:border-slate-800 mb-4 overflow-x-auto">
-        {[['club', t('club_squad'), false] as const, ['international', t('international_squad'), !hasIntl] as const, ['injuries', t('injuries'), false] as const, ['transfers', t('transfers'), false] as const, ['ex_players', t('ex_players'), false] as const].map(([k, label, dis]) => (
+        {[['club', t('club_squad'), false] as const, ['international', t('international_squad'), !hasIntl] as const, ['injuries', t('injuries'), false] as const, ['transfers', t('transfers'), false] as const, ['ex_players', t('ex_players'), false] as const, ['objectives', 'Objectives', false] as const, ['gallery', 'Gallery', false] as const, ['summary', 'Summary', false] as const].map(([k, label, dis]) => (
           <button key={k} onClick={() => !dis && setTab(k)} disabled={dis} title={dis ? t('no_intl') : ''}
             className={`px-4 py-2 text-sm whitespace-nowrap border-b-2 transition ${dis ? 'border-transparent text-slate-300 dark:text-slate-700 cursor-not-allowed' : tab === k ? 'border-emerald-600 text-slate-900 dark:text-slate-100 font-medium' : 'border-transparent text-slate-500 dark:text-slate-400'}`}>{label}</button>
         ))}
       </div>
-      {tab === 'club' && <ClubSquad t={t} grouped={grouped} onPlayerClick={(id) => navigate(`/player/${id}`)} />}
+      {tab === 'club' && <ClubSquad t={t} grouped={grouped} players={players} onPlayerClick={(id) => navigate(`/player/${id}`)} onReload={load} />}
       {tab === 'international' && <InternationalSquad t={t} entries={national} country={season.national_team ?? '?'} />}
       {tab === 'injuries' && <InjuriesSection seasonId={season.id} />}
       {tab === 'transfers' && <TransfersSection seasonId={season.id} />}
       {tab === 'ex_players' && <ExPlayersSection seasonId={season.id} />}
+      {tab === 'objectives' && <ObjectivesSection seasonId={season.id} />}
+      {tab === 'gallery' && <GallerySection seasonId={season.id} />}
+      {tab === 'summary' && <SummarySection seasonId={season.id} />}
     </div>
   );
 }
-function ClubSquad({ t, grouped, onPlayerClick }: { t: any; grouped: Record<SquadRole, SquadPlayer[]>; onPlayerClick: (id: string) => void }) {
+function ClubSquad({ t, grouped, players, onPlayerClick, onReload }: { t: any; grouped: Record<SquadRole, SquadPlayer[]>; players: SquadPlayer[]; onPlayerClick: (id: string) => void; onReload: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<string>('');
+  const missing = players.filter((p) => !p.photo_url);
+  async function fetchAll() {
+    if (missing.length === 0) return;
+    setBusy(true);
+    let ok = 0;
+    for (let i = 0; i < missing.length; i++) {
+      const p = missing[i];
+      setProgress(`${i + 1}/${missing.length} · ${p.name_snapshot}`);
+      try {
+        const res = await fetch(`/api/fetch-photo?name=${encodeURIComponent(p.name_snapshot)}`);
+        if (res.ok) {
+          const j = await res.json();
+          if (j?.url) { await supabase.from('squad_players').update({ photo_url: j.url }).eq('id', p.id); ok++; }
+        }
+      } catch {}
+    }
+    setBusy(false); setProgress(`${ok} fotos actualizadas`); onReload();
+  }
   return (
     <>
+      {missing.length > 0 && (
+        <div className="mb-4 flex items-center gap-3 flex-wrap">
+          <button onClick={fetchAll} disabled={busy} className="bg-emerald-600 hover:bg-emerald-500 text-white rounded px-3 py-1.5 text-xs font-medium disabled:opacity-50">{busy ? 'Buscando…' : `🔄 Buscar fotos faltantes (${missing.length})`}</button>
+          {progress && <span className="text-xs text-slate-500">{progress}</span>}
+        </div>
+      )}
       {ROLE_ORDER.map((role) => (
         <div key={role} className="mb-6">
           <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">{t(role)} <span className="text-slate-400">({grouped[role].length})</span></div>
