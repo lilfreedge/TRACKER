@@ -9,26 +9,15 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico'],
       manifest: {
-        name: 'Career Tracker',
-        short_name: 'Career',
-        description: 'EAFC career mode tracker',
-        theme_color: '#0f172a',
+        name: 'Video juegos y más',
+        short_name: 'VJyM',
+        theme_color: '#059669',
         background_color: '#0f172a',
         display: 'standalone',
         icons: [
-          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/app-logo.png', sizes: '192x192', type: 'image/png' },
+          { src: '/app-logo.png', sizes: '512x512', type: 'image/png' },
         ],
-        share_target: {
-          action: '/share',
-          method: 'POST',
-          enctype: 'multipart/form-data',
-          params: {
-            files: [
-              { name: 'photos', accept: ['image/*'] },
-            ],
-          },
-        },
       },
     }),
   ],
