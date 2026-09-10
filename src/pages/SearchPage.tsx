@@ -36,7 +36,7 @@ export default function SearchPage() {
     for (const s of saves) if ((s.name ?? '').toLowerCase().includes(term)) out.push({ kind: 'save', id: s.id, title: s.name, sub: s.game_edition ?? '', to: `/save/${s.id}` });
     for (const s of seasons) if ((s.label ?? '').toLowerCase().includes(term) || (s.team_name_snapshot ?? '').toLowerCase().includes(term)) out.push({ kind: 'season', id: s.id, title: `${s.label} · ${s.team_name_snapshot ?? ''}`, sub: 'Season', to: `/season/${s.id}` });
     for (const p of players) if ((p.name_snapshot ?? '').toLowerCase().includes(term)) out.push({ kind: 'player', id: p.id, title: p.name_snapshot, sub: `${p.position ?? '?'} · OVR ${p.ovr ?? '?'}`, to: `/player/${p.id}` });
-    for (const r of rivals) if ((r.team_name ?? '').toLowerCase().includes(term)) out.push({ kind: 'rival', id: r.id, title: r.team_name, sub: 'Rival', to: `/save/${r.save_id}/rival/${r.id}` });
+    for (const r of rivals) if ((r.rival_team ?? '').toLowerCase().includes(term)) out.push({ kind: 'rival', id: r.id, title: r.rival_team, sub: 'Rival', to: `/save/${r.save_id}/rival/${r.id}` });
     return out.slice(0, 200);
   }, [q, saves, seasons, players, rivals]);
 
