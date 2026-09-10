@@ -1,5 +1,23 @@
 export interface ChangelogEntry { version: string; date: string; changes: string[]; }
 export const CHANGELOG: ChangelogEntry[] = [
+  { version: '1.5.0', date: '2026-09-10', changes: [
+    'League detail page: click any league in Competition to see Champions table + Top scorers table.',
+    'Champions table format matches manual spreadsheet: team-colored rows, W / 2ND counts, years won / runners-up.',
+    'Top scorer table: #, player, goals, nationality (color background), season, team (color background).',
+    'Auto-normalize years: "38" → "2038", "27-28" → "2027-2028".',
+    'Setting "Highlight seasons from year" (default 2026) — seasons from that year onwards render highlighted in Competition tables.',
+    'Country header per league (ENGLAND / SPAIN / EUROPE …).',
+    'Sample seed: Real Madrid (15 UCL) + PSG (2 UCL) so the League detail renders out of the box.',
+    'Edit + delete buttons on every season card (label, national team, since month/year, current toggle).',
+    'New season form: since-month datalist with jan/feb/…/dec, since-year auto-defaults from the last season.',
+    'National-team badge (🌍 [team]) on season cards.',
+    'Shortcuts from within a season: Career / Competition / Rivals pills at the top.',
+    'Save sub-nav trimmed to just Compare + Manager.',
+    'Contracts editable (✎ per contract).',
+    'Awards moved under Career.',
+    'Auto-fetch player photos in background when opening a season; API upgraded with 4 providers (FUTBIN, Wiki summary, Wiki search, DuckDuckGo) via weserv proxy.',
+    'Bug fixes: owner_email set on save insert, national_since_month typed, useMemo unused import removed.',
+  ] },
   { version: '1.4.0', date: '2026-09-10', changes: [
     'Games page: big app logo hero + gradient title.',
     'Games / Saves / Save pages: unified UX — search bar, Add opens inline form, drag & drop to reorder.',
