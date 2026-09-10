@@ -86,7 +86,7 @@ export default function SavePage() {
         </div>
         <div className="flex gap-2">
           <button onClick={() => navigate(`/save/${saveId}/contracts`)} className="border border-slate-300 dark:border-slate-700 hover:border-emerald-400 rounded-lg px-4 py-2 text-sm font-medium flex items-center gap-2 transition">
-            <ContractIcon width={16} height={16} /> {t('new_contract') ?? 'Contracts'}
+            <ContractIcon width={16} height={16} /> Contracts
           </button>
           <button onClick={() => setShowSeasonForm((v) => !v)} className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm font-medium flex items-center gap-2 transition">
             <PlusIcon width={16} height={16} /> {t('new_season')}
@@ -129,7 +129,7 @@ export default function SavePage() {
 
       {/* Search seasons */}
       <div className="relative mb-3">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('search_seasons') ?? 'Search seasons…'} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg pl-10 pr-3 py-2.5 text-sm" />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search seasons…" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg pl-10 pr-3 py-2.5 text-sm" />
         <svg className="absolute left-3 top-3 w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
       </div>
 
@@ -153,7 +153,7 @@ export default function SavePage() {
                   </div>
                   <div className="text-xs text-slate-500 mt-0.5 truncate">
                     {s.team_name_snapshot ? <span className="font-medium text-slate-700 dark:text-slate-300">{s.team_name_snapshot}</span> : <span>—</span>}
-                    {s.team_since_year && <span> · since {s.team_since_year}</span>}
+                    {s.club_since_year && <span> · since {s.club_since_year}</span>}
                   </div>
                 </div>
                 <svg className="w-4 h-4 text-slate-300 group-hover:text-emerald-500 transition shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>

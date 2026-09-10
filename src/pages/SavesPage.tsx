@@ -74,12 +74,12 @@ export default function SavesPage() {
       <Link to="/" className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 text-sm">← {t('games')}</Link>
       <div className="mt-2 mb-6">
         <h1 className="text-3xl font-bold">{game}</h1>
-        <p className="text-slate-500 text-sm mt-1">{t('saves_subtitle') ?? 'Pick a career save or start a new one.'}</p>
+        <p className="text-slate-500 text-sm mt-1">{t('saves_subtitle')}</p>
       </div>
       {err && <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm rounded">{err}</div>}
       <div className="flex gap-2 mb-4 items-center">
         <div className="flex-1 relative">
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('search_saves') ?? 'Search saves…'} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg pl-10 pr-3 py-2.5 text-sm" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search saves…" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg pl-10 pr-3 py-2.5 text-sm" />
           <svg className="absolute left-3 top-3 w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
         </div>
         <button onClick={() => setShowAdd((v) => !v)} className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-lg px-4 py-2.5 text-sm flex items-center gap-2 transition">
