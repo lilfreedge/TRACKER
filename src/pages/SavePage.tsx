@@ -20,9 +20,6 @@ export default function SavePage() {
   const [tileOrder, setTileOrder] = useState<TileKey[]>(DEFAULT_ORDER);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [eLabel, setELabel] = useState('');
-  const [eNationalTeam, setENationalTeam] = useState('');
-  const [eNationalSinceMonth, setENationalSinceMonth] = useState('');
-  const [eNationalSinceYear, setENationalSinceYear] = useState('');
   const [eIsCurrent, setEIsCurrent] = useState(false);
   const dragId = useRef<string | null>(null);
 
@@ -88,9 +85,6 @@ export default function SavePage() {
   function startEdit(s: Season) {
     setEditingId(s.id);
     setELabel(s.label);
-    setENationalTeam(s.national_team ?? '');
-    setENationalSinceMonth(s.national_since_month ? String(s.national_since_month) : '');
-    setENationalSinceYear(s.national_team_since_year ? String(s.national_team_since_year) : '');
     setEIsCurrent(!!s.is_current);
   }
   function cancelEdit() { setEditingId(null); }
@@ -98,9 +92,6 @@ export default function SavePage() {
     if (!editingId) return;
     const payload: any = {
       label: eLabel.trim(),
-      national_team: eNationalTeam.trim() || null,
-      national_team_since_year: eNationalSinceYear ? Number(eNationalSinceYear) : null,
-      national_since_month: eNationalSinceMonth ? Number(eNationalSinceMonth) : null,
       is_current: eIsCurrent,
     };
     // If setting current, unset current on the other seasons of this save
@@ -195,18 +186,16 @@ export default function SavePage() {
 
       {filtered.length === 0 ? (
         <div className="text-slate-500 border border-dashed border-slate-300 dark:border-slate-700 rounded p-8 text-center bg-white dark:bg-slate-900">{q ? 'No matches.' : 'No seasons yet.'}</div>
-      ) : (
-        <div className="grid gap-2">
-          {filtered.map((s) => editingId === s.id ? (
-            <div key={s.id} className="bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 rounded-lg p-4 grid gap-2 sm:grid-cols-4">
+      ) : (() => {
+        const currentList = filtered.filter((s) => s.is_current);
+        const previousList = filtered.filter((s) => !s.is_current);
+        const renderCard = (s: Season) => editingId === s.id ? (
+            <div key={s.id} className="bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 rounded-lg p-4 grid gap-2">
               <input value={eLabel} onChange={(e) => setELabel(e.target.value)} placeholder="Label" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm" />
-              <input value={eNationalTeam} onChange={(e) => setENationalTeam(e.target.value)} placeholder="National team" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm" />
-              <input value={eNationalSinceMonth} onChange={(e) => setENationalSinceMonth(e.target.value)} placeholder="Since month (1-12)" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm" />
-              <input value={eNationalSinceYear} onChange={(e) => setENationalSinceYear(e.target.value)} placeholder="Since year" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm" />
-              <label className="sm:col-span-4 flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+              <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
                 <input type="checkbox" checked={eIsCurrent} onChange={(e) => setEIsCurrent(e.target.checked)} /> Mark as current season
               </label>
-              <div className="sm:col-span-4 flex justify-between gap-2">
+              <div className="flex justify-between gap-2">
                 <button onClick={() => deleteSeason(s)} className="text-xs text-red-500 hover:text-red-400">Delete season</button>
                 <div className="flex gap-2"><button onClick={cancelEdit} className="text-sm px-3 py-2 text-slate-500">Cancel</button><button onClick={saveEdit} className="bg-emerald-600 text-white rounded px-4 py-2 text-sm">Save</button></div>
               </div>
@@ -236,9 +225,26 @@ export default function SavePage() {
               <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); startEdit(s); }} className="px-2 text-slate-400 hover:text-emerald-500 text-sm" title="Edit season">✎</button>
               <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); deleteSeason(s); }} className="px-3 text-slate-400 hover:text-red-500 text-lg" title="Delete season">×</button>
             </div>
-          ))}
-        </div>
-      )}
+          );
+        return (
+          <div className="grid gap-6">
+            <div>
+              <div className="text-xs uppercase tracking-wide text-emerald-600 font-semibold mb-2">🟢 Current {currentList.length > 0 && <span className="text-slate-400 font-normal">({currentList.length})</span>}</div>
+              {currentList.length === 0 ? (
+                <div className="text-slate-400 text-xs italic border border-dashed border-slate-200 dark:border-slate-800 rounded p-3 bg-white dark:bg-slate-900">No current season.</div>
+              ) : (
+                <div className="grid gap-2">{currentList.map(renderCard)}</div>
+              )}
+            </div>
+            {previousList.length > 0 && (
+              <div>
+                <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-2">📁 Previous <span className="text-slate-400 font-normal">({previousList.length})</span></div>
+                <div className="grid gap-2">{previousList.map(renderCard)}</div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -59,6 +59,10 @@ export default function SquadAddPanel({ seasonId, saveId, onReload }: Props) {
   async function addOne() {
     if (!name.trim()) return;
     setBusy(true);
+    if (role === 'starting') {
+      const { count } = await supabase.from('squad_players').select('*', { count: 'exact', head: true }).eq('season_id', seasonId).eq('role', 'starting');
+      if ((count ?? 0) >= 11) { alert('Starting XI is full (11 players). Move someone out first.'); setBusy(false); return; }
+    }
     const payload: any = { season_id: seasonId, name_snapshot: name.trim(), jersey: jersey ? Number(jersey) : null, position: pos || null, age: age ? Number(age) : null, ovr: ovr ? Number(ovr) : null, nationality_snapshot: nat || null, since_year: since ? Number(since) : null, role };
     const { error } = await supabase.from('squad_players').insert(payload);
     setBusy(false);

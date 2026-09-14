@@ -74,11 +74,10 @@ export default function GamesPage() {
 
   return (
     <div>
-      {/* App logo hero */}
-      <div className="flex flex-col items-center text-center mb-8 pt-4">
-        <img src="/app-logo.png" alt={APP_NAME} className="w-32 h-32 sm:w-40 sm:h-40" />
-        <h1 className="text-3xl sm:text-4xl font-black mt-4 tracking-tight bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">{APP_NAME}</h1>
-        <p className="text-slate-500 text-sm mt-2 max-w-md">{t('games_subtitle')}</p>
+      {/* App logo hero — bigger, no subtitle */}
+      <div className="flex flex-col items-center text-center mb-8 pt-2">
+        <img src="/app-logo.png" alt={APP_NAME} className="w-48 h-48 sm:w-56 sm:h-56" />
+        <h1 className="text-3xl sm:text-4xl font-black mt-3 tracking-tight bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">{APP_NAME}</h1>
       </div>
 
       {err && <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm rounded">{err}</div>}
@@ -96,16 +95,16 @@ export default function GamesPage() {
 
       {showAdd && (
         <div className="bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 rounded-xl p-5 mb-4">
-          <div className="text-xs uppercase text-slate-500 font-semibold mb-2">Choose game type</div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 mb-4">
+          <div className="text-xs uppercase text-slate-500 font-semibold mb-2">Game type</div>
+          <div className="flex gap-2 mb-4 flex-wrap">
             {GAME_TYPES.map((gt) => {
               const active = newType === gt.id;
               return (
                 <button key={gt.id} onClick={() => gt.implemented && setNewType(gt.id)} disabled={!gt.implemented}
-                  className={`text-left border rounded-lg p-3 transition ${active ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'border-slate-200 dark:border-slate-800 hover:border-slate-400'} ${!gt.implemented ? 'opacity-40 cursor-not-allowed' : ''}`}>
-                  <div className={`w-8 h-8 rounded bg-gradient-to-br ${gt.color} mb-2`} />
-                  <div className="font-semibold text-sm">{gt.label}{!gt.implemented && <span className="ml-1 text-[10px] font-normal text-slate-400">soon</span>}</div>
-                  <div className="text-xs text-slate-500 mt-0.5 leading-tight">{gt.description}</div>
+                  className={`text-left border rounded-lg px-3 py-2 text-xs transition flex items-center gap-2 ${active ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'border-slate-200 dark:border-slate-800 hover:border-slate-400'} ${!gt.implemented ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                  <div className={`w-5 h-5 rounded bg-gradient-to-br ${gt.color}`} />
+                  <span className="font-semibold">{gt.label}</span>
+                  {!gt.implemented && <span className="text-[9px] font-normal text-slate-400">soon</span>}
                 </button>
               );
             })}

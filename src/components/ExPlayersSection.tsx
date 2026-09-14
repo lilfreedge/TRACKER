@@ -13,9 +13,7 @@ export default function ExPlayersSection({ seasonId }: { seasonId: string }) {
   if (loading) return <div className="text-slate-500 text-sm py-6 text-center">…</div>;
   return (
     <div>
-      <div className="flex justify-end mb-3">
-        <button onClick={() => setShowForm((v) => !v)} className="bg-emerald-600 hover:bg-emerald-500 text-white rounded px-3 py-1.5 text-sm">+ Add ex-player</button>
-      </div>
+      <div className="text-xs text-slate-500 mb-3 italic">Ex-players populate automatically when you sell someone in Squad Hub or Transfers.</div>
       {showForm && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-3 mb-4 grid gap-2 sm:grid-cols-3">
           <input placeholder="Name" value={form.player_name ?? ''} onChange={(e) => setForm({ ...form, player_name: e.target.value })} className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm" />

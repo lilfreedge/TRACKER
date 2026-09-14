@@ -7,12 +7,11 @@ import Loading from '../components/Loading';
 import InjuriesSection from '../components/InjuriesSection';
 import TransfersSection from '../components/TransfersSection';
 import ExPlayersSection from '../components/ExPlayersSection';
-import GallerySection from '../components/GallerySection';
 import SummarySection from '../components/SummarySection';
 import SquadAddPanel from '../components/SquadAddPanel';
 import { flagFor, niceName } from '../lib/countries';
 import type { Season, SquadPlayer, SquadRole, NationalSquadEntry } from '../types/database';
-type Tab = 'club' | 'international' | 'injuries' | 'transfers' | 'ex_players' | 'gallery' | 'summary';
+type Tab = 'club' | 'international' | 'hub' | 'injuries' | 'transfers' | 'ex_players' | 'gallery' | 'summary';
 const ROLE_ORDER: SquadRole[] = ['starting', 'bench', 'reserve', 'loaned'];
 export default function SeasonPage() {
   const { seasonId } = useParams();
@@ -33,7 +32,18 @@ export default function SeasonPage() {
       supabase.from('squad_players').select('*').eq('season_id', seasonId).order('formation_slot', { ascending: true, nullsFirst: false }),
       supabase.from('national_squad').select('*').eq('season_id', seasonId).order('role', { ascending: true }),
     ]);
-    setSeason(se); setPlayers(sq ?? []); setNational(ns ?? []); setLoading(false);
+    setSeason(se); setPlayers(sq ?? []); setNational(ns ?? []);
+    // Auto-sync: if the current season has no national_team but there's an
+    // active international contract on this save, populate it now.
+    if (se && se.is_current && !se.national_team) {
+      const { data: intlContract } = await supabase.from('contracts').select('team_name, team_color, signed_year, signed_month').eq('save_id', se.save_id).eq('contract_type', 'international').is('ended_year', null).order('signed_year', { ascending: false }).limit(1).maybeSingle();
+      if (intlContract) {
+        const payload: any = { national_team: intlContract.team_name, national_team_color: intlContract.team_color, national_team_since_year: intlContract.signed_year, national_since_month: intlContract.signed_month };
+        await supabase.from('seasons').update(payload).eq('id', se.id);
+        setSeason({ ...se, ...payload });
+      }
+    }
+    setLoading(false);
     // Fetch neighbor seasons + previous season snapshot for highlight diffs
     if (se?.save_id) {
       const { data: all } = await supabase.from('seasons').select('id, label').eq('save_id', se.save_id).order('label', { ascending: true });
@@ -78,10 +88,12 @@ export default function SeasonPage() {
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
         </button>
         <div className="flex-1">
-          <div className="text-sm opacity-80">{season.label}</div>
-          <div className="text-2xl font-bold mt-1 flex items-center gap-3 flex-wrap">
-            <span>{bannerTitle ?? '—'}</span>
-            {bannerSince && <span className="text-sm opacity-80 font-normal">· {t('since')} {bannerSince}</span>}
+          <div className="text-3xl font-bold flex items-center gap-3 flex-wrap">
+            <span>{season.label}</span>
+          </div>
+          <div className="text-sm opacity-90 mt-1 flex items-center gap-2 flex-wrap">
+            <span className="font-medium">{bannerTitle ?? '—'}</span>
+            {bannerSince && <span className="opacity-80">· {t('since')} {bannerSince}</span>}
           </div>
         </div>
         <button onClick={() => neighbors.next && navigate(`/season/${neighbors.next}`)} disabled={!neighbors.next} className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition" title="Next season">
@@ -89,7 +101,7 @@ export default function SeasonPage() {
         </button>
       </div>
       <div className="flex gap-1 border-b border-slate-200 dark:border-slate-800 mb-4 overflow-x-auto">
-        {[['club', t('club_squad'), false] as const, ['international', t('international_squad'), !hasIntl] as const, ['injuries', t('injuries'), false] as const, ['transfers', t('transfers'), false] as const, ['ex_players', t('ex_players'), false] as const, ['gallery', 'Gallery', false] as const, ['summary', 'Summary', false] as const].map(([k, label, dis]) => (
+        {[['club', t('club_squad'), false] as const, ['international', t('international_squad'), !hasIntl] as const, ['hub', 'Squad Hub', false] as const, ['injuries', t('injuries'), false] as const, ['transfers', t('transfers'), false] as const, ['ex_players', t('ex_players'), false] as const, ['summary', 'Summary', false] as const].map(([k, label, dis]) => (
           <button key={k} onClick={() => !dis && setTab(k)} disabled={dis} title={dis ? t('no_intl') : ''}
             className={`px-4 py-2 text-sm whitespace-nowrap border-b-2 transition ${dis ? 'border-transparent text-slate-300 dark:text-slate-700 cursor-not-allowed' : tab === k ? 'border-emerald-600 text-slate-900 dark:text-slate-100 font-medium' : 'border-transparent text-slate-500 dark:text-slate-400'}`}>{label}</button>
         ))}
@@ -97,14 +109,14 @@ export default function SeasonPage() {
       {tab === 'club' && (
         <>
           <SquadAddPanel seasonId={season.id} saveId={season.save_id} onReload={load} />
-          <ClubSquad t={t} grouped={grouped} players={players} prevSnapshot={prevSnapshot} onPlayerClick={(id) => navigate(`/player/${id}`)} onReload={load} />
+          <ClubSquad t={t} grouped={grouped} players={players} prevSnapshot={prevSnapshot} seasonStartYear={(() => { const m = /(\d{4})-\d{4}/.exec(season.label); return m ? Number(m[1]) : null; })()} onPlayerClick={(id) => navigate(`/player/${id}`)} onReload={load} />
         </>
       )}
       {tab === 'international' && <InternationalSquad t={t} entries={national} country={season.national_team ?? '?'} />}
+      {tab === 'hub' && <SquadHub t={t} players={players} onPlayerClick={(id) => navigate(`/player/${id}`)} />}
       {tab === 'injuries' && <InjuriesSection seasonId={season.id} />}
       {tab === 'transfers' && <TransfersSection seasonId={season.id} />}
       {tab === 'ex_players' && <ExPlayersSection seasonId={season.id} />}
-      {tab === 'gallery' && <GallerySection seasonId={season.id} />}
       {tab === 'summary' && <SummarySection seasonId={season.id} />}
     </div>
   );
@@ -122,6 +134,11 @@ function InlineEditRow({ p, onSaved, onCancel, onDelete }: { p: SquadPlayer; onS
   const [busy, setBusy] = useState(false);
   async function save() {
     setBusy(true);
+    // Enforce max 11 in Starting XI when moving into 'starting' from another role
+    if (role === 'starting' && p.role !== 'starting') {
+      const { count } = await supabase.from('squad_players').select('*', { count: 'exact', head: true }).eq('season_id', p.season_id).eq('role', 'starting');
+      if ((count ?? 0) >= 11) { alert('Starting XI is full (11 players). Move someone else out first.'); setBusy(false); return; }
+    }
     const payload: any = { name_snapshot: name.trim(), jersey: jersey ? Number(jersey) : null, position: pos || null, age: age ? Number(age) : null, ovr: ovr ? Number(ovr) : null, nationality_snapshot: nat || null, since_year: since ? Number(since) : null, role };
     const { error } = await supabase.from('squad_players').update(payload).eq('id', p.id);
     setBusy(false);
@@ -133,6 +150,7 @@ function InlineEditRow({ p, onSaved, onCancel, onDelete }: { p: SquadPlayer; onS
       <td className="px-1 py-1"><input value={jersey} onChange={(e) => setJersey(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1 py-0.5 text-xs" /></td>
       <td className="px-1 py-1"><select value={pos} onChange={(e) => setPos(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1 py-0.5 text-xs"><option value="">?</option>{POSITIONS.map((x) => <option key={x}>{x}</option>)}</select></td>
       <td className="px-1 py-1"><input value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1 py-0.5 text-xs" /></td>
+      <td className="px-1 py-1 text-slate-300 text-center">—</td>
       <td className="px-1 py-1"><input value={age} onChange={(e) => setAge(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1 py-0.5 text-xs text-right" /></td>
       <td className="px-1 py-1"><input value={ovr} onChange={(e) => setOvr(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1 py-0.5 text-xs text-right" /></td>
       <td className="px-1 py-1"><input value={nat} onChange={(e) => setNat(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1 py-0.5 text-xs" /></td>
@@ -149,8 +167,12 @@ function InlineEditRow({ p, onSaved, onCancel, onDelete }: { p: SquadPlayer; onS
   );
 }
 const ROLE_RANK: Record<SquadRole, number> = { starting: 4, bench: 3, reserve: 2, loaned: 1 };
-function computeHighlight(p: SquadPlayer, prev: SquadPlayer | undefined): 'up' | 'down' | null {
-  if (!prev) return 'up'; // new signing
+function computeHighlight(p: SquadPlayer, prev: SquadPlayer | undefined, seasonStartYear: number | null): 'up' | 'down' | null {
+  if (!prev) {
+    // Only mark as new signing if since_year matches the season start
+    if (seasonStartYear && p.since_year != null && p.since_year < seasonStartYear) return null;
+    return 'up';
+  }
   if ((p.ovr ?? 0) > (prev.ovr ?? 0)) return 'up';
   if ((p.ovr ?? 0) < (prev.ovr ?? 0)) return 'down';
   if (p.jersey != null && prev.jersey != null && p.jersey !== prev.jersey) return 'up';
@@ -160,8 +182,11 @@ function computeHighlight(p: SquadPlayer, prev: SquadPlayer | undefined): 'up' |
   if (cur < old) return 'down';
   return null;
 }
-type SortKey = 'jersey' | 'position' | 'name_snapshot' | 'age' | 'ovr' | 'nationality_snapshot' | 'since_year';
-function ClubSquad({ t, grouped, players, prevSnapshot, onPlayerClick, onReload }: { t: any; grouped: Record<SquadRole, SquadPlayer[]>; players: SquadPlayer[]; prevSnapshot: Map<string, SquadPlayer>; onPlayerClick: (id: string) => void; onReload: () => void }) {
+type SortKey = 'jersey' | 'position' | 'name_snapshot' | 'age' | 'ovr' | 'nationality_snapshot' | 'since_year' | 'formation';
+// 4-1-4-1 tactical order (top → bottom of the pitch)
+const FORMATION_RANK: Record<string, number> = { ST: 1, CF: 1, LF: 1, RF: 1, LW: 2, LM: 2, RW: 3, RM: 3, CM: 4, CAM: 4, CDM: 6, LB: 7, LWB: 7, CB: 8, RB: 10, RWB: 10, GK: 11 };
+function formationRank(pos: string | null): number { if (!pos) return 99; return FORMATION_RANK[pos] ?? 99; }
+function ClubSquad({ t, grouped, players, prevSnapshot, seasonStartYear, onPlayerClick, onReload }: { t: any; grouped: Record<SquadRole, SquadPlayer[]>; players: SquadPlayer[]; prevSnapshot: Map<string, SquadPlayer>; seasonStartYear: number | null; onPlayerClick: (id: string) => void; onReload: () => void }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('jersey');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
@@ -169,8 +194,13 @@ function ClubSquad({ t, grouped, players, prevSnapshot, onPlayerClick, onReload 
     if (sortKey === k) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
     else { setSortKey(k); setSortDir('asc'); }
   }
-  function sortRows(rows: SquadPlayer[]): SquadPlayer[] {
+  function sortRows(rows: SquadPlayer[], role: SquadRole): SquadPlayer[] {
     const sign = sortDir === 'asc' ? 1 : -1;
+    // Formation sort only applies to Starting XI; other roles fall back to jersey ASC
+    if (sortKey === 'formation') {
+      if (role !== 'starting') return [...rows].sort((a, b) => ((a.jersey ?? 99) - (b.jersey ?? 99)));
+      return [...rows].sort((a, b) => (formationRank(a.position) - formationRank(b.position)) * sign);
+    }
     return [...rows].sort((a: any, b: any) => {
       const av = a[sortKey]; const bv = b[sortKey];
       if (av == null && bv == null) return 0;
@@ -230,6 +260,7 @@ function ClubSquad({ t, grouped, players, prevSnapshot, onPlayerClick, onReload 
                   <th className="text-left px-3 py-2 w-10 cursor-pointer hover:text-emerald-600" onClick={() => toggleSort('jersey')}>{t('th_num')}{arrow('jersey')}</th>
                   <th className="text-left px-3 py-2 w-16 cursor-pointer hover:text-emerald-600" onClick={() => toggleSort('position')}>{t('th_pos')}{arrow('position')}</th>
                   <th className="text-left px-3 py-2 cursor-pointer hover:text-emerald-600" onClick={() => toggleSort('name_snapshot')}>{t('th_name')}{arrow('name_snapshot')}</th>
+                  <th className="text-right px-3 py-2 w-16 cursor-pointer hover:text-emerald-600" onClick={() => toggleSort('formation')} title="Formation (4-1-4-1) — sorts Starting XI only">FORM{arrow('formation')}</th>
                   <th className="text-right px-3 py-2 w-14 cursor-pointer hover:text-emerald-600" onClick={() => toggleSort('age')}>{t('th_age')}{arrow('age')}</th>
                   <th className="text-right px-3 py-2 w-14 cursor-pointer hover:text-emerald-600" onClick={() => toggleSort('ovr')}>{t('th_ovr')}{arrow('ovr')}</th>
                   <th className="text-left px-3 py-2 w-28 cursor-pointer hover:text-emerald-600" onClick={() => toggleSort('nationality_snapshot')}>{t('th_nat')}{arrow('nationality_snapshot')}</th>
@@ -238,19 +269,20 @@ function ClubSquad({ t, grouped, players, prevSnapshot, onPlayerClick, onReload 
                 </tr>
               </thead>
               <tbody>
-                {grouped[role].length === 0 ? (<tr><td colSpan={8} className="text-center text-slate-400 py-6">{t('no_players')}</td></tr>) : sortRows(grouped[role]).map((p) => {
+                {grouped[role].length === 0 ? (<tr><td colSpan={9} className="text-center text-slate-400 py-6">{t('no_players')}</td></tr>) : sortRows(grouped[role], role).map((p) => {
                   if (editingId === p.id) return <InlineEditRow key={p.id} p={p} onSaved={() => { setEditingId(null); onReload(); }} onCancel={() => setEditingId(null)} onDelete={() => { setEditingId(null); delPlayer(p.id); }} />;
-                  const hi = computeHighlight(p, prevSnapshot.get(p.name_snapshot.toLowerCase()));
-                  const rowBg = hi === 'up' ? 'bg-emerald-50/70 dark:bg-emerald-900/20' : hi === 'down' ? 'bg-red-50/70 dark:bg-red-900/20' : '';
+                  const hi = computeHighlight(p, prevSnapshot.get(p.name_snapshot.toLowerCase()), seasonStartYear);
+                  const rowBg = hi === 'up' ? 'bg-emerald-100 dark:bg-emerald-900/40' : hi === 'down' ? 'bg-red-100 dark:bg-red-900/40' : '';
                   return (
                     <tr key={p.id} className={`group border-t border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/60 ${rowBg}`}>
-                      <td className="px-3 py-2 text-slate-500 cursor-pointer" onClick={() => onPlayerClick(p.id)}>{p.jersey ?? '?'}</td>
-                      <td className="px-3 py-2 font-mono cursor-pointer" onClick={() => onPlayerClick(p.id)}>{p.position ?? '?'}</td>
-                      <td className="px-3 py-2 flex items-center gap-2 cursor-pointer" onClick={() => onPlayerClick(p.id)}>{p.photo_url ? (<img src={p.photo_url} alt="" className="w-6 h-6 rounded-full object-cover" />) : (<div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] text-slate-500">?</div>)}<span>{p.name_snapshot}</span></td>
-                      <td className="px-3 py-2 text-right cursor-pointer" onClick={() => onPlayerClick(p.id)}>{p.age ?? '?'}</td>
-                      <td className="px-3 py-2 text-right font-semibold cursor-pointer" onClick={() => onPlayerClick(p.id)}>{p.ovr ?? '?'}</td>
-                      <td className="px-3 py-2 cursor-pointer" onClick={() => onPlayerClick(p.id)}>{p.nationality_snapshot ? (<span className="flex items-center gap-1"><span className="text-base">{flagFor(p.nationality_snapshot)}</span><span>{niceName(p.nationality_snapshot)}</span></span>) : '?'}</td>
-                      <td className="px-3 py-2 text-right text-slate-500 cursor-pointer" onClick={() => onPlayerClick(p.id)}>{p.since_year ?? '?'}</td>
+                      <td className={`px-3 py-2 text-slate-500 cursor-pointer ${p.jersey == null ? 'bg-amber-200 dark:bg-amber-800/40' : ''}`} onClick={() => onPlayerClick(p.id)}>{p.jersey ?? '?'}</td>
+                      <td className={`px-3 py-2 font-mono cursor-pointer ${!p.position ? 'bg-amber-200 dark:bg-amber-800/40' : ''}`} onClick={() => onPlayerClick(p.id)}>{p.position ?? '?'}</td>
+                      <td className={`px-3 py-2 flex items-center gap-2 cursor-pointer ${!p.name_snapshot ? 'bg-amber-200 dark:bg-amber-800/40' : ''}`} onClick={() => onPlayerClick(p.id)}>{p.photo_url ? (<img src={p.photo_url} alt="" className="w-6 h-6 rounded-full object-cover" />) : (<div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] text-slate-500">?</div>)}<span>{p.name_snapshot}</span></td>
+                      <td className="px-3 py-2 text-right text-xs font-mono text-slate-400 cursor-pointer" onClick={() => onPlayerClick(p.id)}>{role === 'starting' ? formationRank(p.position) === 99 ? '—' : formationRank(p.position) : ''}</td>
+                      <td className={`px-3 py-2 text-right cursor-pointer ${p.age == null ? 'bg-amber-200 dark:bg-amber-800/40' : ''}`} onClick={() => onPlayerClick(p.id)}>{p.age ?? '?'}</td>
+                      <td className={`px-3 py-2 text-right font-semibold cursor-pointer ${p.ovr == null ? 'bg-amber-200 dark:bg-amber-800/40' : ''}`} onClick={() => onPlayerClick(p.id)}>{p.ovr ?? '?'}</td>
+                      <td className={`px-3 py-2 cursor-pointer ${!p.nationality_snapshot ? 'bg-amber-200 dark:bg-amber-800/40' : ''}`} onClick={() => onPlayerClick(p.id)}>{p.nationality_snapshot ? (<span className="flex items-center gap-1"><span className="text-base">{flagFor(p.nationality_snapshot)}</span><span>{niceName(p.nationality_snapshot)}</span></span>) : '?'}</td>
+                      <td className={`px-3 py-2 text-right text-slate-500 cursor-pointer ${p.since_year == null ? 'bg-amber-200 dark:bg-amber-800/40' : ''}`} onClick={() => onPlayerClick(p.id)}>{p.since_year ?? '?'}</td>
                       <td className="px-3 py-2 whitespace-nowrap opacity-0 group-hover:opacity-100 transition text-right">
                         <button onClick={(e) => { e.stopPropagation(); setEditingId(p.id); }} className="text-slate-400 hover:text-emerald-500 text-sm mr-2" title="Edit">✎</button>
                         <button onClick={(e) => { e.stopPropagation(); delPlayer(p.id); }} className="text-slate-400 hover:text-red-500 text-sm" title="Delete">×</button>
@@ -264,6 +296,61 @@ function ClubSquad({ t, grouped, players, prevSnapshot, onPlayerClick, onReload 
         </div>
       ))}
     </>
+  );
+}
+const ROLE_LABEL: Record<SquadRole, string> = { starting: 'Starting XI', bench: 'Bench', reserve: 'Reserve', loaned: 'Loaned' };
+const ROLE_COLOR: Record<SquadRole, string> = { starting: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300', bench: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300', reserve: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300', loaned: 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300' };
+function SquadHub({ t, players, onPlayerClick }: { t: any; players: SquadPlayer[]; onPlayerClick: (id: string) => void }) {
+  const [sk, setSk] = useState<SortKey>('jersey');
+  const [sd, setSd] = useState<'asc' | 'desc'>('asc');
+  function toggle(k: SortKey) { if (sk === k) setSd((d) => d === 'asc' ? 'desc' : 'asc'); else { setSk(k); setSd('asc'); } }
+  const arr = (k: SortKey) => sk === k ? (sd === 'asc' ? ' ↑' : ' ↓') : '';
+  const rows = [...players].sort((a: any, b: any) => {
+    const sign = sd === 'asc' ? 1 : -1;
+    if (sk === 'formation') return (formationRank(a.position) - formationRank(b.position)) * sign;
+    const av = a[sk]; const bv = b[sk];
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * sign;
+    return String(av).localeCompare(String(bv)) * sign;
+  });
+  return (
+    <div>
+      <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">Squad hub <span className="text-slate-400">({players.length})</span></div>
+      <div className="border border-slate-200 dark:border-slate-800 rounded overflow-hidden bg-white dark:bg-slate-900">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs uppercase">
+            <tr>
+              <th className="text-left px-3 py-2 w-10 cursor-pointer hover:text-emerald-600" onClick={() => toggle('jersey')}>#{arr('jersey')}</th>
+              <th className="text-left px-3 py-2 w-16 cursor-pointer hover:text-emerald-600" onClick={() => toggle('position')}>POS{arr('position')}</th>
+              <th className="text-left px-3 py-2 cursor-pointer hover:text-emerald-600" onClick={() => toggle('name_snapshot')}>NAME{arr('name_snapshot')}</th>
+              <th className="text-right px-3 py-2 w-16 cursor-pointer hover:text-emerald-600" onClick={() => toggle('formation')}>FORM{arr('formation')}</th>
+              <th className="text-right px-3 py-2 w-14 cursor-pointer hover:text-emerald-600" onClick={() => toggle('age')}>AGE{arr('age')}</th>
+              <th className="text-right px-3 py-2 w-14 cursor-pointer hover:text-emerald-600" onClick={() => toggle('ovr')}>OVR{arr('ovr')}</th>
+              <th className="text-left px-3 py-2 w-24">STATUS</th>
+              <th className="text-left px-3 py-2 w-28 cursor-pointer hover:text-emerald-600" onClick={() => toggle('nationality_snapshot')}>NAT{arr('nationality_snapshot')}</th>
+              <th className="text-right px-3 py-2 w-16 cursor-pointer hover:text-emerald-600" onClick={() => toggle('since_year')}>SINCE{arr('since_year')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (<tr><td colSpan={9} className="text-center text-slate-400 py-6">{t('no_players')}</td></tr>) : rows.map((p) => (
+              <tr key={p.id} className="border-t border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer" onClick={() => onPlayerClick(p.id)}>
+                <td className="px-3 py-2 text-slate-500">{p.jersey ?? '?'}</td>
+                <td className="px-3 py-2 font-mono">{p.position ?? '?'}</td>
+                <td className="px-3 py-2 flex items-center gap-2">{p.photo_url ? <img src={p.photo_url} alt="" className="w-6 h-6 rounded-full object-cover" /> : <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] text-slate-500">?</div>}<span>{p.name_snapshot}</span></td>
+                <td className="px-3 py-2 text-right text-xs font-mono text-slate-400">{formationRank(p.position) === 99 ? '—' : formationRank(p.position)}</td>
+                <td className="px-3 py-2 text-right">{p.age ?? '?'}</td>
+                <td className="px-3 py-2 text-right font-semibold">{p.ovr ?? '?'}</td>
+                <td className="px-3 py-2"><span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${ROLE_COLOR[p.role]}`}>{ROLE_LABEL[p.role]}</span></td>
+                <td className="px-3 py-2">{p.nationality_snapshot ? <span className="flex items-center gap-1"><span className="text-base">{flagFor(p.nationality_snapshot)}</span><span>{niceName(p.nationality_snapshot)}</span></span> : '?'}</td>
+                <td className="px-3 py-2 text-right text-slate-500">{p.since_year ?? '?'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 function InternationalSquad({ t, entries, country }: { t: any; entries: NationalSquadEntry[]; country: string }) {

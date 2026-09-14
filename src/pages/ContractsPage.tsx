@@ -9,7 +9,7 @@ interface Contract { id: string; save_id: string; team_name: string; team_color:
 interface TeamRow { id: string; name: string; country: string | null; primary_color: string | null; text_color: string | null; crest_url: string | null; aliases: string[] | null; }
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-const empty = { team: '', color: '#059669', crest: '', catalogId: null as string | null, signedMonth: '', signedYear: '', salary: '', contractType: 'club' as 'club' | 'international' };
+const empty = { team: '', color: '#059669', crest: '', catalogId: null as string | null, signedMonth: '', signedYear: '', endedMonth: '', endedYear: '', salary: '', contractType: 'club' as 'club' | 'international' };
 
 function ContractCard({ c, onEdit, onDel, onResign, durationText }: { c: any; onEdit: () => void; onDel: () => void; onResign?: () => void; durationText: (c: any) => string }) {
   const endedDate = c.ended_year ? `${c.ended_month ? MONTHS[c.ended_month - 1] + ' ' : ''}${c.ended_year}` : null;
@@ -68,6 +68,8 @@ export default function ContractsPage() {
       catalogId: c.team_catalog_id ?? null,
       signedMonth: c.signed_month ? String(c.signed_month) : '',
       signedYear: c.signed_year ? String(c.signed_year) : '',
+      endedMonth: c.ended_month ? String(c.ended_month) : '',
+      endedYear: c.ended_year ? String(c.ended_year) : '',
       salary: c.monthly_salary != null ? String(c.monthly_salary) : '',
       contractType: c.contract_type ?? 'club',
     });
@@ -77,7 +79,15 @@ export default function ContractsPage() {
 
   async function save() {
     if (!saveId || !f.team.trim()) return;
-    const payload: any = { save_id: saveId, team_name: f.team.trim(), team_color: f.color || null, team_crest_url: f.crest || null, team_catalog_id: f.catalogId, contract_type: f.contractType, signed_year: f.signedYear ? Number(f.signedYear) : null, signed_month: f.signedMonth ? Number(f.signedMonth) : null, monthly_salary: f.salary ? Number(f.salary) : null };
+    // Guard: only one active contract per type (club / international)
+    if (editing === 'new') {
+      const existingActive = rows.find((c) => !c.ended_year && (c.contract_type ?? 'club') === f.contractType);
+      if (existingActive) {
+        alert(`You already have an active ${f.contractType} contract with ${existingActive.team_name}. Resign from it first.`);
+        return;
+      }
+    }
+    const payload: any = { save_id: saveId, team_name: f.team.trim(), team_color: f.color || null, team_crest_url: f.crest || null, team_catalog_id: f.catalogId, contract_type: f.contractType, signed_year: f.signedYear ? Number(f.signedYear) : null, signed_month: f.signedMonth ? Number(f.signedMonth) : null, ended_year: f.endedYear ? Number(f.endedYear) : null, ended_month: f.endedMonth ? Number(f.endedMonth) : null, monthly_salary: f.salary ? Number(f.salary) : null };
     let error;
     let newContract: any = null;
     if (editing === 'new') {
@@ -168,6 +178,10 @@ export default function ContractsPage() {
       <input value={f.signedYear} onChange={(e) => setF({ ...f, signedYear: e.target.value })} placeholder="Signed year" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm" />
       <input value={f.salary} onChange={(e) => setF({ ...f, salary: e.target.value })} placeholder="Monthly salary (EUR)" type="number" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm" />
       <input value={f.crest} onChange={(e) => setF({ ...f, crest: e.target.value })} placeholder="Crest URL" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm" />
+      <select value={f.endedMonth} onChange={(e) => setF({ ...f, endedMonth: e.target.value })} className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm">
+        <option value="">Ended month (optional)…</option>{MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+      </select>
+      <input value={f.endedYear} onChange={(e) => setF({ ...f, endedYear: e.target.value })} placeholder="Ended year (optional)" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm" />
       <div className="sm:col-span-2 flex justify-end gap-2"><button onClick={cancel} className="px-3 py-2 text-sm text-slate-500">Cancel</button><button onClick={save} className="bg-emerald-600 hover:bg-emerald-500 text-white rounded px-4 py-2 text-sm">{editing === 'new' ? 'Save' : 'Update'}</button></div>
     </div>
   );
