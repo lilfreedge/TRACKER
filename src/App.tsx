@@ -26,7 +26,12 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   useEffect(() => { applyToDom(); }, []);
   return (
-    <div className="min-h-full flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+    <div className="min-h-full flex flex-col text-slate-900 dark:text-slate-100 relative bg-slate-50 dark:bg-slate-950">
+      {/* Subtle Green Goblin backdrop across every page */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 z-0 flex items-center justify-center overflow-hidden">
+        <img src="/app-logo.png" alt="" className="w-[70vmin] h-[70vmin] object-contain opacity-[0.05] dark:opacity-[0.08] blur-[1px]" />
+      </div>
+      <div className="relative z-10 flex-1 flex flex-col">
       <header className="border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/80 backdrop-blur px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
         <Link to="/" className="flex items-center gap-2 font-bold tracking-tight text-lg text-slate-900 dark:text-slate-100">
           <img src="/app-logo.png" alt="Logo" className="w-10 h-10 object-contain" />
@@ -66,6 +71,7 @@ export default function App() {
         </Routes>
       </main>
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      </div>
     </div>
   );
 }

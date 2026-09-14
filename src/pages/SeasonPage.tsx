@@ -7,13 +7,12 @@ import Loading from '../components/Loading';
 import InjuriesSection from '../components/InjuriesSection';
 import TransfersSection from '../components/TransfersSection';
 import ExPlayersSection from '../components/ExPlayersSection';
-import ObjectivesSection from '../components/ObjectivesSection';
 import GallerySection from '../components/GallerySection';
 import SummarySection from '../components/SummarySection';
 import SquadAddPanel from '../components/SquadAddPanel';
 import { flagFor, niceName } from '../lib/countries';
 import type { Season, SquadPlayer, SquadRole, NationalSquadEntry } from '../types/database';
-type Tab = 'club' | 'international' | 'injuries' | 'transfers' | 'ex_players' | 'objectives' | 'gallery' | 'summary';
+type Tab = 'club' | 'international' | 'injuries' | 'transfers' | 'ex_players' | 'gallery' | 'summary';
 const ROLE_ORDER: SquadRole[] = ['starting', 'bench', 'reserve', 'loaned'];
 export default function SeasonPage() {
   const { seasonId } = useParams();
@@ -25,6 +24,7 @@ export default function SeasonPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('club');
   const [neighbors, setNeighbors] = useState<{ prev: string | null; next: string | null }>({ prev: null, next: null });
+  const [prevSnapshot, setPrevSnapshot] = useState<Map<string, SquadPlayer>>(new Map());
   async function load() {
     if (!seasonId) return;
     setLoading(true);
@@ -34,12 +34,22 @@ export default function SeasonPage() {
       supabase.from('national_squad').select('*').eq('season_id', seasonId).order('role', { ascending: true }),
     ]);
     setSeason(se); setPlayers(sq ?? []); setNational(ns ?? []); setLoading(false);
-    // Fetch neighbor seasons for prev/next arrows
+    // Fetch neighbor seasons + previous season snapshot for highlight diffs
     if (se?.save_id) {
       const { data: all } = await supabase.from('seasons').select('id, label').eq('save_id', se.save_id).order('label', { ascending: true });
       if (all) {
         const idx = all.findIndex((s) => s.id === seasonId);
-        setNeighbors({ prev: idx > 0 ? all[idx - 1].id : null, next: idx >= 0 && idx < all.length - 1 ? all[idx + 1].id : null });
+        const prevId = idx > 0 ? all[idx - 1].id : null;
+        const nextId = idx >= 0 && idx < all.length - 1 ? all[idx + 1].id : null;
+        setNeighbors({ prev: prevId, next: nextId });
+        if (prevId) {
+          const { data: prevSq } = await supabase.from('squad_players').select('*').eq('season_id', prevId);
+          const map = new Map<string, SquadPlayer>();
+          for (const p of (prevSq ?? []) as SquadPlayer[]) map.set(p.name_snapshot.toLowerCase(), p);
+          setPrevSnapshot(map);
+        } else {
+          setPrevSnapshot(new Map());
+        }
       }
     }
   }
@@ -79,7 +89,7 @@ export default function SeasonPage() {
         </button>
       </div>
       <div className="flex gap-1 border-b border-slate-200 dark:border-slate-800 mb-4 overflow-x-auto">
-        {[['club', t('club_squad'), false] as const, ['international', t('international_squad'), !hasIntl] as const, ['injuries', t('injuries'), false] as const, ['transfers', t('transfers'), false] as const, ['ex_players', t('ex_players'), false] as const, ['objectives', 'Objectives', false] as const, ['gallery', 'Gallery', false] as const, ['summary', 'Summary', false] as const].map(([k, label, dis]) => (
+        {[['club', t('club_squad'), false] as const, ['international', t('international_squad'), !hasIntl] as const, ['injuries', t('injuries'), false] as const, ['transfers', t('transfers'), false] as const, ['ex_players', t('ex_players'), false] as const, ['gallery', 'Gallery', false] as const, ['summary', 'Summary', false] as const].map(([k, label, dis]) => (
           <button key={k} onClick={() => !dis && setTab(k)} disabled={dis} title={dis ? t('no_intl') : ''}
             className={`px-4 py-2 text-sm whitespace-nowrap border-b-2 transition ${dis ? 'border-transparent text-slate-300 dark:text-slate-700 cursor-not-allowed' : tab === k ? 'border-emerald-600 text-slate-900 dark:text-slate-100 font-medium' : 'border-transparent text-slate-500 dark:text-slate-400'}`}>{label}</button>
         ))}
@@ -87,20 +97,72 @@ export default function SeasonPage() {
       {tab === 'club' && (
         <>
           <SquadAddPanel seasonId={season.id} saveId={season.save_id} onReload={load} />
-          <ClubSquad t={t} grouped={grouped} players={players} onPlayerClick={(id) => navigate(`/player/${id}`)} onReload={load} />
+          <ClubSquad t={t} grouped={grouped} players={players} prevSnapshot={prevSnapshot} onPlayerClick={(id) => navigate(`/player/${id}`)} onReload={load} />
         </>
       )}
       {tab === 'international' && <InternationalSquad t={t} entries={national} country={season.national_team ?? '?'} />}
       {tab === 'injuries' && <InjuriesSection seasonId={season.id} />}
       {tab === 'transfers' && <TransfersSection seasonId={season.id} />}
       {tab === 'ex_players' && <ExPlayersSection seasonId={season.id} />}
-      {tab === 'objectives' && <ObjectivesSection seasonId={season.id} />}
       {tab === 'gallery' && <GallerySection seasonId={season.id} />}
       {tab === 'summary' && <SummarySection seasonId={season.id} />}
     </div>
   );
 }
-function ClubSquad({ t, grouped, players, onPlayerClick, onReload }: { t: any; grouped: Record<SquadRole, SquadPlayer[]>; players: SquadPlayer[]; onPlayerClick: (id: string) => void; onReload: () => void }) {
+const POSITIONS = ['GK','CB','LB','RB','LWB','RWB','CDM','CM','CAM','LM','RM','LW','RW','ST','CF','LF','RF'];
+function InlineEditRow({ p, onSaved, onCancel, onDelete }: { p: SquadPlayer; onSaved: () => void; onCancel: () => void; onDelete: () => void }) {
+  const [jersey, setJersey] = useState(p.jersey?.toString() ?? '');
+  const [pos, setPos] = useState(p.position ?? '');
+  const [name, setName] = useState(p.name_snapshot);
+  const [age, setAge] = useState(p.age?.toString() ?? '');
+  const [ovr, setOvr] = useState(p.ovr?.toString() ?? '');
+  const [nat, setNat] = useState(p.nationality_snapshot ?? '');
+  const [since, setSince] = useState(p.since_year?.toString() ?? '');
+  const [role, setRole] = useState<SquadRole>(p.role);
+  const [busy, setBusy] = useState(false);
+  async function save() {
+    setBusy(true);
+    const payload: any = { name_snapshot: name.trim(), jersey: jersey ? Number(jersey) : null, position: pos || null, age: age ? Number(age) : null, ovr: ovr ? Number(ovr) : null, nationality_snapshot: nat || null, since_year: since ? Number(since) : null, role };
+    const { error } = await supabase.from('squad_players').update(payload).eq('id', p.id);
+    setBusy(false);
+    if (error) { alert(error.message); return; }
+    onSaved();
+  }
+  return (
+    <tr className="border-t border-emerald-300 bg-emerald-50 dark:bg-emerald-900/20">
+      <td className="px-1 py-1"><input value={jersey} onChange={(e) => setJersey(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1 py-0.5 text-xs" /></td>
+      <td className="px-1 py-1"><select value={pos} onChange={(e) => setPos(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1 py-0.5 text-xs"><option value="">?</option>{POSITIONS.map((x) => <option key={x}>{x}</option>)}</select></td>
+      <td className="px-1 py-1"><input value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1 py-0.5 text-xs" /></td>
+      <td className="px-1 py-1"><input value={age} onChange={(e) => setAge(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1 py-0.5 text-xs text-right" /></td>
+      <td className="px-1 py-1"><input value={ovr} onChange={(e) => setOvr(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1 py-0.5 text-xs text-right" /></td>
+      <td className="px-1 py-1"><input value={nat} onChange={(e) => setNat(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1 py-0.5 text-xs" /></td>
+      <td className="px-1 py-1"><input value={since} onChange={(e) => setSince(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1 py-0.5 text-xs text-right" /></td>
+      <td className="px-1 py-1 whitespace-nowrap">
+        <select value={role} onChange={(e) => setRole(e.target.value as SquadRole)} className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1 py-0.5 text-[10px]">
+          <option value="starting">start</option><option value="bench">bench</option><option value="reserve">reserve</option><option value="loaned">loaned</option>
+        </select>
+        <button onClick={save} disabled={busy} className="ml-1 text-emerald-600 hover:text-emerald-500 text-sm" title="Save">✓</button>
+        <button onClick={onCancel} className="ml-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-sm" title="Cancel">✕</button>
+        <button onClick={onDelete} className="ml-1 text-red-400 hover:text-red-600 text-sm" title="Delete">🗑</button>
+      </td>
+    </tr>
+  );
+}
+const ROLE_RANK: Record<SquadRole, number> = { starting: 4, bench: 3, reserve: 2, loaned: 1 };
+function computeHighlight(p: SquadPlayer, prev: SquadPlayer | undefined): 'up' | 'down' | null {
+  if (!prev) return 'up'; // new signing
+  if ((p.ovr ?? 0) > (prev.ovr ?? 0)) return 'up';
+  if ((p.ovr ?? 0) < (prev.ovr ?? 0)) return 'down';
+  if (p.jersey != null && prev.jersey != null && p.jersey !== prev.jersey) return 'up';
+  const cur = ROLE_RANK[p.role] ?? 0;
+  const old = ROLE_RANK[prev.role] ?? 0;
+  if (cur > old) return 'up';
+  if (cur < old) return 'down';
+  return null;
+}
+function ClubSquad({ t, grouped, players, prevSnapshot, onPlayerClick, onReload }: { t: any; grouped: Record<SquadRole, SquadPlayer[]>; players: SquadPlayer[]; prevSnapshot: Map<string, SquadPlayer>; onPlayerClick: (id: string) => void; onReload: () => void }) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  async function delPlayer(id: string) { if (!confirm('Delete player?')) return; await supabase.from('squad_players').delete().eq('id', id); onReload(); }
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<string>('');
   const missing = players.filter((p) => !p.photo_url);
@@ -145,20 +207,29 @@ function ClubSquad({ t, grouped, players, onPlayerClick, onReload }: { t: any; g
           <div className="border border-slate-200 dark:border-slate-800 rounded overflow-hidden bg-white dark:bg-slate-900">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs uppercase">
-                <tr><th className="text-left px-3 py-2 w-10">{t('th_num')}</th><th className="text-left px-3 py-2 w-16">{t('th_pos')}</th><th className="text-left px-3 py-2">{t('th_name')}</th><th className="text-right px-3 py-2 w-14">{t('th_age')}</th><th className="text-right px-3 py-2 w-14">{t('th_ovr')}</th><th className="text-left px-3 py-2 w-28">{t('th_nat')}</th><th className="text-right px-3 py-2 w-16">{t('th_since')}</th></tr>
+                <tr><th className="text-left px-3 py-2 w-10">{t('th_num')}</th><th className="text-left px-3 py-2 w-16">{t('th_pos')}</th><th className="text-left px-3 py-2">{t('th_name')}</th><th className="text-right px-3 py-2 w-14">{t('th_age')}</th><th className="text-right px-3 py-2 w-14">{t('th_ovr')}</th><th className="text-left px-3 py-2 w-28">{t('th_nat')}</th><th className="text-right px-3 py-2 w-16">{t('th_since')}</th><th className="w-16"></th></tr>
               </thead>
               <tbody>
-                {grouped[role].length === 0 ? (<tr><td colSpan={7} className="text-center text-slate-400 py-6">{t('no_players')}</td></tr>) : grouped[role].map((p) => (
-                  <tr key={p.id} onClick={() => onPlayerClick(p.id)} className="border-t border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer">
-                    <td className="px-3 py-2 text-slate-500">{p.jersey ?? '?'}</td>
-                    <td className="px-3 py-2 font-mono">{p.position ?? '?'}</td>
-                    <td className="px-3 py-2 flex items-center gap-2">{p.photo_url ? (<img src={p.photo_url} alt="" className="w-6 h-6 rounded-full object-cover" />) : (<div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] text-slate-500">?</div>)}<span>{p.name_snapshot}</span></td>
-                    <td className="px-3 py-2 text-right">{p.age ?? '?'}</td>
-                    <td className="px-3 py-2 text-right font-semibold">{p.ovr ?? '?'}</td>
-                    <td className="px-3 py-2">{p.nationality_snapshot ? (<span className="flex items-center gap-1"><span className="text-base">{flagFor(p.nationality_snapshot)}</span><span>{niceName(p.nationality_snapshot)}</span></span>) : '?'}</td>
-                    <td className="px-3 py-2 text-right text-slate-500">{p.since_year ?? '?'}</td>
-                  </tr>
-                ))}
+                {grouped[role].length === 0 ? (<tr><td colSpan={8} className="text-center text-slate-400 py-6">{t('no_players')}</td></tr>) : grouped[role].map((p) => {
+                  if (editingId === p.id) return <InlineEditRow key={p.id} p={p} onSaved={() => { setEditingId(null); onReload(); }} onCancel={() => setEditingId(null)} onDelete={() => { setEditingId(null); delPlayer(p.id); }} />;
+                  const hi = computeHighlight(p, prevSnapshot.get(p.name_snapshot.toLowerCase()));
+                  const rowBg = hi === 'up' ? 'bg-emerald-50/70 dark:bg-emerald-900/20' : hi === 'down' ? 'bg-red-50/70 dark:bg-red-900/20' : '';
+                  return (
+                    <tr key={p.id} className={`group border-t border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/60 ${rowBg}`}>
+                      <td className="px-3 py-2 text-slate-500 cursor-pointer" onClick={() => onPlayerClick(p.id)}>{p.jersey ?? '?'}</td>
+                      <td className="px-3 py-2 font-mono cursor-pointer" onClick={() => onPlayerClick(p.id)}>{p.position ?? '?'}</td>
+                      <td className="px-3 py-2 flex items-center gap-2 cursor-pointer" onClick={() => onPlayerClick(p.id)}>{p.photo_url ? (<img src={p.photo_url} alt="" className="w-6 h-6 rounded-full object-cover" />) : (<div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] text-slate-500">?</div>)}<span>{p.name_snapshot}</span></td>
+                      <td className="px-3 py-2 text-right cursor-pointer" onClick={() => onPlayerClick(p.id)}>{p.age ?? '?'}</td>
+                      <td className="px-3 py-2 text-right font-semibold cursor-pointer" onClick={() => onPlayerClick(p.id)}>{p.ovr ?? '?'}</td>
+                      <td className="px-3 py-2 cursor-pointer" onClick={() => onPlayerClick(p.id)}>{p.nationality_snapshot ? (<span className="flex items-center gap-1"><span className="text-base">{flagFor(p.nationality_snapshot)}</span><span>{niceName(p.nationality_snapshot)}</span></span>) : '?'}</td>
+                      <td className="px-3 py-2 text-right text-slate-500 cursor-pointer" onClick={() => onPlayerClick(p.id)}>{p.since_year ?? '?'}</td>
+                      <td className="px-3 py-2 whitespace-nowrap opacity-0 group-hover:opacity-100 transition text-right">
+                        <button onClick={(e) => { e.stopPropagation(); setEditingId(p.id); }} className="text-slate-400 hover:text-emerald-500 text-sm mr-2" title="Edit">✎</button>
+                        <button onClick={(e) => { e.stopPropagation(); delPlayer(p.id); }} className="text-slate-400 hover:text-red-500 text-sm" title="Delete">×</button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -125,9 +125,9 @@ export default function SavePage() {
 
   const current = seasons.find((s) => s.is_current) ?? seasons[0];
   const tiles: Record<TileKey, { title: string; icon: any; onClick: () => void; disabled?: boolean; subtitle?: string; accent: string }> = {
-    career:      { title: t('career'), icon: CareerIcon, accent: 'from-blue-500/10 to-blue-500/5 border-blue-200 dark:border-blue-900 text-blue-700 dark:text-blue-300', onClick: () => navigate(`/save/${saveId}/career`) },
+    career:      { title: 'Whole Career', icon: CareerIcon, accent: 'from-blue-500/10 to-blue-500/5 border-blue-200 dark:border-blue-900 text-blue-700 dark:text-blue-300', onClick: () => navigate(`/save/${saveId}/career`) },
     current:     { title: t('current_season'), icon: CurrentSeasonIcon, accent: 'from-emerald-500/10 to-emerald-500/5 border-emerald-200 dark:border-emerald-900 text-emerald-700 dark:text-emerald-300', onClick: () => current && navigate(`/season/${current.id}`), disabled: !current, subtitle: current ? `${current.label} · ${current.team_name_snapshot ?? ''}` : undefined },
-    competition: { title: t('competition'), icon: CompetitionIcon, accent: 'from-amber-500/10 to-amber-500/5 border-amber-200 dark:border-amber-900 text-amber-700 dark:text-amber-300', onClick: () => navigate(`/save/${saveId}/competition`) },
+    competition: { title: 'Competitions', icon: CompetitionIcon, accent: 'from-amber-500/10 to-amber-500/5 border-amber-200 dark:border-amber-900 text-amber-700 dark:text-amber-300', onClick: () => navigate(`/save/${saveId}/competition`) },
     rivals:      { title: t('rivals'), icon: RivalsIcon, accent: 'from-rose-500/10 to-rose-500/5 border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300', onClick: () => navigate(`/save/${saveId}/rivals`) },
   };
 

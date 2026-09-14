@@ -2,6 +2,7 @@ export interface ChangelogEntry { version: string; date: string; changes: string
 export const CHANGELOG: ChangelogEntry[] = [
   { version: '1.5.0', date: '2026-09-14', changes: [
     'Squad add panel: + Add player (with autocomplete over all known players), 📋 Paste squad (tab/comma separated), ↻ Copy previous season (age +1), 📷 Upload photo placeholder for v1.6.',
+    'Inline edit per squad row: ✎ opens jersey/pos/name/age/OVR/nat/since/role editors right in the table. × deletes.',
     'Season banner: ← → arrows to move between seasons.',
     'New season form: team autocomplete against the team catalog, label auto-derived as "Season YYYY-YYYY" from since year, since year auto-increments each time.',
     'League detail page: click any league in Competition to see Champions table + Top scorers table.',
