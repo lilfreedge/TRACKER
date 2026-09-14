@@ -1,5 +1,7 @@
--- 019: sample data for the League detail page: only Real Madrid & PSG
--- winners of the UEFA Champions League (as requested by the user).
+-- 019: extend competition_champions with team colors + seed Real Madrid & PSG
+alter table competition_champions add column if not exists team_color text;
+alter table competition_champions add column if not exists team_text_color text;
+
 insert into competition_champions (save_id, competition_name, team_name, team_country, team_color, team_text_color, wins, runners_up, years_won, years_runner_up)
 select cs.id, 'UEFA Champions League', x.team, x.country, x.color, x.text_color, x.w, x.rup, x.years_w, x.years_rup
 from career_saves cs

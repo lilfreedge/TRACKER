@@ -4,7 +4,10 @@ import { supabase } from '../lib/supabase';
 import { useLang } from '../lib/i18n';
 import Loading from '../components/Loading';
 import { CareerIcon, CurrentSeasonIcon, CompetitionIcon, RivalsIcon, ContractIcon, PlusIcon } from '../components/Icons';
+import Autocomplete, { type AutoOption } from '../components/Autocomplete';
 import type { CareerSave, Season } from '../types/database';
+
+interface TeamRow { id: string; name: string; country: string | null; primary_color: string | null; text_color: string | null; crest_url: string | null; aliases: string[] | null; }
 
 type TileKey = 'career' | 'current' | 'competition' | 'rivals';
 const DEFAULT_ORDER: TileKey[] = ['career', 'current', 'competition', 'rivals'];
@@ -26,9 +29,10 @@ export default function SavePage() {
   const [eNationalSinceYear, setENationalSinceYear] = useState('');
   const [eIsCurrent, setEIsCurrent] = useState(false);
   const [nationalTeam, setNationalTeam] = useState('');
+  const [nationalTeamColor, setNationalTeamColor] = useState<string | null>(null);
   const [nationalSinceMonth, setNationalSinceMonth] = useState('');
   const [nationalSinceYear, setNationalSinceYear] = useState('');
-  const [label, setLabel] = useState('');
+  const [teams, setTeams] = useState<TeamRow[]>([]);
   const dragId = useRef<string | null>(null);
 
   async function load() {
@@ -40,23 +44,31 @@ export default function SavePage() {
     ]);
     setSave(s); setSeasons(se ?? []); setLoading(false);
     try { const stored = localStorage.getItem(`tileOrder:${saveId}`); if (stored) { const parsed = JSON.parse(stored) as TileKey[]; if (parsed.every((k) => DEFAULT_ORDER.includes(k))) setTileOrder(parsed); } } catch {}
+    // Suggest the next season's since year from the most recent season.
+    // Label is derived automatically from since year at submit time.
     if (se && se.length) {
-      // Find the season with the highest ending year across all seasons, so
-      // the next-season suggestion always increments from the latest season
-      // regardless of sort_order or drag reorder.
       let maxEnd = 0;
-      for (const s of se) { const m = /^(\d{4})-(\d{4})$/.exec(s.label); if (m) { const y2 = Number(m[2]); if (y2 > maxEnd) maxEnd = y2; } }
-      if (maxEnd > 0) { setLabel(`${maxEnd}-${maxEnd + 1}`); setNationalSinceYear(String(maxEnd)); }
-    } else { setLabel('2037-2038'); setNationalSinceYear('2037'); }
+      for (const s of se) {
+        const m = /Season\s+(\d{4})-(\d{4})|^(\d{4})-(\d{4})$/.exec(s.label);
+        if (m) { const y2 = Number(m[2] ?? m[4]); if (y2 > maxEnd) maxEnd = y2; }
+      }
+      if (maxEnd > 0) setNationalSinceYear(String(maxEnd));
+    } else { setNationalSinceYear('2026'); }
+    // Load team catalog for the autocomplete
+    const { data: cats } = await supabase.from('team_catalog').select('*').order('name', { ascending: true });
+    setTeams((cats ?? []) as TeamRow[]);
   }
   useEffect(() => { load(); }, [saveId]);
 
   async function createSeason() {
-    if (!saveId || !label.trim()) return;
-    const payload: any = { save_id: saveId, label: label.trim(), national_team: nationalTeam.trim() || null, national_team_since_year: nationalSinceYear ? Number(nationalSinceYear) : null, national_since_month: nationalSinceMonth ? Number(nationalSinceMonth) : null, is_current: false };
+    if (!saveId || !nationalSinceYear) return;
+    const y = Number(nationalSinceYear);
+    if (!y) return;
+    const derivedLabel = `Season ${y}-${y + 1}`;
+    const payload: any = { save_id: saveId, label: derivedLabel, national_team: nationalTeam.trim() || null, national_team_color: nationalTeamColor, national_team_since_year: y, national_since_month: nationalSinceMonth ? Number(nationalSinceMonth) : null, is_current: false };
     const { error } = await supabase.from('seasons').insert(payload);
     if (error) { alert('Error: ' + error.message); return; }
-    setLabel(''); setNationalTeam(''); setNationalSinceMonth(''); setNationalSinceYear(''); setShowSeasonForm(false); load();
+    setNationalTeam(''); setNationalTeamColor(null); setNationalSinceMonth(''); setNationalSinceYear(String(y + 1)); setShowSeasonForm(false); load();
   }
 
   function startEdit(s: Season) {
@@ -160,18 +172,23 @@ export default function SavePage() {
         ))}
       </div>
 
-      {showSeasonForm && (
-        <div className="bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 rounded-lg p-4 mb-4 grid gap-2 sm:grid-cols-4">
-          <input autoFocus value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Label (e.g. 2038-2039)" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm" />
-          <input value={nationalTeam} onChange={(e) => setNationalTeam(e.target.value)} placeholder="National team (optional)" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm" />
-          <input list="month-options" value={nationalSinceMonth} onChange={(e) => setNationalSinceMonth(e.target.value)} placeholder="Since month" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm" />
-          <datalist id="month-options">
-            <option value="jan" /><option value="feb" /><option value="mar" /><option value="apr" /><option value="may" /><option value="jun" /><option value="jul" /><option value="aug" /><option value="sep" /><option value="oct" /><option value="nov" /><option value="dec" />
-          </datalist>
-          <input value={nationalSinceYear} onChange={(e) => setNationalSinceYear(e.target.value)} placeholder="Since year" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm" />
-          <div className="sm:col-span-4 flex justify-end gap-2"><button onClick={() => setShowSeasonForm(false)} className="text-sm px-3 py-2 text-slate-500">Cancel</button><button onClick={createSeason} className="bg-emerald-600 text-white rounded px-4 py-2 text-sm">Create</button></div>
-        </div>
-      )}
+      {showSeasonForm && (() => {
+        const teamOptions: AutoOption[] = teams.map((tt) => ({ value: tt.name, label: tt.name, aliases: tt.aliases ?? [], crest_url: tt.crest_url ?? undefined, color: tt.primary_color ?? undefined, meta: { primary_color: tt.primary_color, crest_url: tt.crest_url } }));
+        const y = Number(nationalSinceYear);
+        const preview = y ? `Season ${y}-${y + 1}` : 'Season ????-????';
+        return (
+          <div className="bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 rounded-lg p-4 mb-4 grid gap-2 sm:grid-cols-3">
+            <div className="sm:col-span-3 text-xs text-slate-500">Label preview: <span className="font-mono text-slate-700 dark:text-slate-300">{preview}</span></div>
+            <Autocomplete value={nationalTeam} onChange={(v, opt) => { setNationalTeam(v); if (opt?.meta?.primary_color) setNationalTeamColor(opt.meta.primary_color); }} options={teamOptions} placeholder="Team (type to search)" />
+            <input list="month-options" value={nationalSinceMonth} onChange={(e) => setNationalSinceMonth(e.target.value)} placeholder="Since month" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm" />
+            <datalist id="month-options">
+              <option value="jan" /><option value="feb" /><option value="mar" /><option value="apr" /><option value="may" /><option value="jun" /><option value="jul" /><option value="aug" /><option value="sep" /><option value="oct" /><option value="nov" /><option value="dec" />
+            </datalist>
+            <input value={nationalSinceYear} onChange={(e) => setNationalSinceYear(e.target.value)} placeholder="Since year" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm" />
+            <div className="sm:col-span-3 flex justify-end gap-2"><button onClick={() => setShowSeasonForm(false)} className="text-sm px-3 py-2 text-slate-500">Cancel</button><button onClick={createSeason} className="bg-emerald-600 text-white rounded px-4 py-2 text-sm">Create</button></div>
+          </div>
+        );
+      })()}
 
       {/* Search seasons */}
       <div className="relative mb-3">

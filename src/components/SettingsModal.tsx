@@ -10,10 +10,10 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const { theme, setTheme } = useTheme();
   const [showChangelog, setShowChangelog] = useState(false);
   const [highlightYear, setHighlightYear] = useState('2026');
-  useEffect(() => { (async () => { const { data } = await supabase.from('preferences').select('value').eq('key', 'highlight_from_year').maybeSingle(); if (data?.value) setHighlightYear(String(data.value)); })(); }, []);
+  useEffect(() => { (async () => { const { data } = await supabase.from('app_settings').select('value').eq('key', 'highlight_from_year').maybeSingle(); if (data?.value) setHighlightYear(String(data.value)); })(); }, []);
   async function saveHighlightYear(v: string) {
     setHighlightYear(v);
-    await supabase.from('preferences').upsert({ key: 'highlight_from_year', value: v, updated_at: new Date().toISOString() });
+    await supabase.from('app_settings').upsert({ key: 'highlight_from_year', value: v, updated_at: new Date().toISOString() });
   }
   return (
     <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-start sm:items-center justify-center p-3" onClick={onClose}>

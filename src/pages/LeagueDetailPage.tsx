@@ -38,7 +38,7 @@ export default function LeagueDetailPage() {
       supabase.from('save_competitions').select('*').eq('save_id', saveId).eq('name', compName).maybeSingle(),
       supabase.from('competition_champions').select('*').eq('save_id', saveId).eq('competition_name', compName).order('wins', { ascending: false }),
       supabase.from('competition_top_scorers').select('*').eq('save_id', saveId).eq('competition_name', compName).order('goals', { ascending: false }),
-      supabase.from('preferences').select('value').eq('key', 'highlight_from_year').maybeSingle(),
+      supabase.from('app_settings').select('value').eq('key', 'highlight_from_year').maybeSingle(),
     ]);
     setLeague(lg as League | null);
     setChamps((ch ?? []) as Champion[]);
@@ -81,13 +81,15 @@ export default function LeagueDetailPage() {
     <div>
       <Link to={`/save/${saveId}/competition`} className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 text-sm">← Competition</Link>
 
-      {/* Header: country + league */}
+      {/* Header: country (only when set) + league */}
       <div className="mt-3 mb-6 flex items-stretch rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800">
-        <div className="bg-white dark:bg-slate-900 px-6 py-4 flex items-center border-r border-slate-200 dark:border-slate-800 min-w-[140px]">
-          <div className="text-red-800 dark:text-red-400 font-black text-2xl tracking-tight uppercase">{league?.country ?? '—'}</div>
-        </div>
+        {league?.country && (
+          <div className="bg-white dark:bg-slate-900 px-6 py-4 flex items-center border-r border-slate-200 dark:border-slate-800 min-w-[140px]">
+            <div className="text-red-800 dark:text-red-400 font-black text-2xl tracking-tight uppercase">{league.country}</div>
+          </div>
+        )}
         <div className="flex-1 bg-purple-500 text-white px-6 py-4 flex items-center gap-3">
-          {league?.logo_url && <img src={league.logo_url} alt="" className="w-10 h-10 object-contain bg-white/10 rounded p-1" />}
+          {league?.logo_url && <img src={league.logo_url} alt="" className="w-10 h-10 object-contain bg-white/10 rounded p-1" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />}
           <div className="font-bold uppercase text-lg tracking-wide">{compName}</div>
         </div>
       </div>

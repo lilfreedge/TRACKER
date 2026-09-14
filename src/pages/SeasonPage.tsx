@@ -10,6 +10,7 @@ import ExPlayersSection from '../components/ExPlayersSection';
 import ObjectivesSection from '../components/ObjectivesSection';
 import GallerySection from '../components/GallerySection';
 import SummarySection from '../components/SummarySection';
+import SquadAddPanel from '../components/SquadAddPanel';
 import { flagFor, niceName } from '../lib/countries';
 import type { Season, SquadPlayer, SquadRole, NationalSquadEntry } from '../types/database';
 type Tab = 'club' | 'international' | 'injuries' | 'transfers' | 'ex_players' | 'objectives' | 'gallery' | 'summary';
@@ -23,6 +24,7 @@ export default function SeasonPage() {
   const [national, setNational] = useState<NationalSquadEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('club');
+  const [neighbors, setNeighbors] = useState<{ prev: string | null; next: string | null }>({ prev: null, next: null });
   async function load() {
     if (!seasonId) return;
     setLoading(true);
@@ -32,6 +34,14 @@ export default function SeasonPage() {
       supabase.from('national_squad').select('*').eq('season_id', seasonId).order('role', { ascending: true }),
     ]);
     setSeason(se); setPlayers(sq ?? []); setNational(ns ?? []); setLoading(false);
+    // Fetch neighbor seasons for prev/next arrows
+    if (se?.save_id) {
+      const { data: all } = await supabase.from('seasons').select('id, label').eq('save_id', se.save_id).order('label', { ascending: true });
+      if (all) {
+        const idx = all.findIndex((s) => s.id === seasonId);
+        setNeighbors({ prev: idx > 0 ? all[idx - 1].id : null, next: idx >= 0 && idx < all.length - 1 ? all[idx + 1].id : null });
+      }
+    }
   }
   useEffect(() => { load(); }, [seasonId]);
   if (loading) return <Loading />;
@@ -53,12 +63,20 @@ export default function SeasonPage() {
           ))}
         </div>
       </div>
-      <div className="mt-3 rounded-lg p-5 mb-4" style={{ background: bannerBg, color: bannerText }}>
-        <div className="text-sm opacity-80">{season.label}</div>
-        <div className="text-2xl font-bold mt-1 flex items-center gap-3 flex-wrap">
-          <span>{bannerTitle ?? '—'}</span>
-          {bannerSince && <span className="text-sm opacity-80 font-normal">· {t('since')} {bannerSince}</span>}
+      <div className="mt-3 rounded-lg p-5 mb-4 flex items-center gap-3" style={{ background: bannerBg, color: bannerText }}>
+        <button onClick={() => neighbors.prev && navigate(`/season/${neighbors.prev}`)} disabled={!neighbors.prev} className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition" title="Previous season">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+        </button>
+        <div className="flex-1">
+          <div className="text-sm opacity-80">{season.label}</div>
+          <div className="text-2xl font-bold mt-1 flex items-center gap-3 flex-wrap">
+            <span>{bannerTitle ?? '—'}</span>
+            {bannerSince && <span className="text-sm opacity-80 font-normal">· {t('since')} {bannerSince}</span>}
+          </div>
         </div>
+        <button onClick={() => neighbors.next && navigate(`/season/${neighbors.next}`)} disabled={!neighbors.next} className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition" title="Next season">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+        </button>
       </div>
       <div className="flex gap-1 border-b border-slate-200 dark:border-slate-800 mb-4 overflow-x-auto">
         {[['club', t('club_squad'), false] as const, ['international', t('international_squad'), !hasIntl] as const, ['injuries', t('injuries'), false] as const, ['transfers', t('transfers'), false] as const, ['ex_players', t('ex_players'), false] as const, ['objectives', 'Objectives', false] as const, ['gallery', 'Gallery', false] as const, ['summary', 'Summary', false] as const].map(([k, label, dis]) => (
@@ -66,7 +84,12 @@ export default function SeasonPage() {
             className={`px-4 py-2 text-sm whitespace-nowrap border-b-2 transition ${dis ? 'border-transparent text-slate-300 dark:text-slate-700 cursor-not-allowed' : tab === k ? 'border-emerald-600 text-slate-900 dark:text-slate-100 font-medium' : 'border-transparent text-slate-500 dark:text-slate-400'}`}>{label}</button>
         ))}
       </div>
-      {tab === 'club' && <ClubSquad t={t} grouped={grouped} players={players} onPlayerClick={(id) => navigate(`/player/${id}`)} onReload={load} />}
+      {tab === 'club' && (
+        <>
+          <SquadAddPanel seasonId={season.id} saveId={season.save_id} onReload={load} />
+          <ClubSquad t={t} grouped={grouped} players={players} onPlayerClick={(id) => navigate(`/player/${id}`)} onReload={load} />
+        </>
+      )}
       {tab === 'international' && <InternationalSquad t={t} entries={national} country={season.national_team ?? '?'} />}
       {tab === 'injuries' && <InjuriesSection seasonId={season.id} />}
       {tab === 'transfers' && <TransfersSection seasonId={season.id} />}
