@@ -4,10 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useLang } from '../lib/i18n';
 import Loading from '../components/Loading';
 import { CareerIcon, CurrentSeasonIcon, CompetitionIcon, RivalsIcon, ContractIcon, PlusIcon } from '../components/Icons';
-import Autocomplete, { type AutoOption } from '../components/Autocomplete';
 import type { CareerSave, Season } from '../types/database';
-
-interface TeamRow { id: string; name: string; country: string | null; primary_color: string | null; text_color: string | null; crest_url: string | null; aliases: string[] | null; }
 
 type TileKey = 'career' | 'current' | 'competition' | 'rivals';
 const DEFAULT_ORDER: TileKey[] = ['career', 'current', 'competition', 'rivals'];
@@ -21,7 +18,6 @@ export default function SavePage() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [tileOrder, setTileOrder] = useState<TileKey[]>(DEFAULT_ORDER);
-  const [showSeasonForm, setShowSeasonForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [eLabel, setELabel] = useState('');
   const [eNationalTeam, setENationalTeam] = useState('');
@@ -85,7 +81,7 @@ export default function SavePage() {
       }
     }
 
-    setShowSeasonForm(false); load();
+    load();
     navigate(`/season/${newSeason.id}`);
   }
 
@@ -185,28 +181,11 @@ export default function SavePage() {
 
       {/* Sub-nav */}
       <div className="flex flex-wrap gap-2 mb-6 text-xs">
-        {[['Compare', `/save/${saveId}/compare`], ['Manager', `/save/${saveId}/manager`]].map(([lbl, to]) => (
+        {[['Compare', `/save/${saveId}/compare`]].map(([lbl, to]) => (
           <Link key={to} to={to} className="text-slate-500 hover:text-emerald-600 border border-slate-200 dark:border-slate-800 rounded-full px-3 py-1 transition">{lbl}</Link>
         ))}
       </div>
 
-      {showSeasonForm && (() => {
-        const teamOptions: AutoOption[] = teams.map((tt) => ({ value: tt.name, label: tt.name, aliases: tt.aliases ?? [], crest_url: tt.crest_url ?? undefined, color: tt.primary_color ?? undefined, meta: { primary_color: tt.primary_color, crest_url: tt.crest_url } }));
-        const y = Number(nationalSinceYear);
-        const preview = y ? `Season ${y}-${y + 1}` : 'Season ????-????';
-        return (
-          <div className="bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 rounded-lg p-4 mb-4 grid gap-2 sm:grid-cols-3">
-            <div className="sm:col-span-3 text-xs text-slate-500">Label preview: <span className="font-mono text-slate-700 dark:text-slate-300">{preview}</span></div>
-            <Autocomplete value={nationalTeam} onChange={(v, opt) => { setNationalTeam(v); if (opt?.meta?.primary_color) setNationalTeamColor(opt.meta.primary_color); }} options={teamOptions} placeholder="Team (type to search)" />
-            <input list="month-options" value={nationalSinceMonth} onChange={(e) => setNationalSinceMonth(e.target.value)} placeholder="Since month" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm" />
-            <datalist id="month-options">
-              <option value="jan" /><option value="feb" /><option value="mar" /><option value="apr" /><option value="may" /><option value="jun" /><option value="jul" /><option value="aug" /><option value="sep" /><option value="oct" /><option value="nov" /><option value="dec" />
-            </datalist>
-            <input value={nationalSinceYear} onChange={(e) => setNationalSinceYear(e.target.value)} placeholder="Since year" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm" />
-            <div className="sm:col-span-3 flex justify-end gap-2"><button onClick={() => setShowSeasonForm(false)} className="text-sm px-3 py-2 text-slate-500">Cancel</button><button onClick={createSeason} className="bg-emerald-600 text-white rounded px-4 py-2 text-sm">Create</button></div>
-          </div>
-        );
-      })()}
 
       {/* Search seasons */}
       <div className="relative mb-3">

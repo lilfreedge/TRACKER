@@ -5,11 +5,41 @@ import { useLang } from '../lib/i18n';
 import Loading from '../components/Loading';
 import Autocomplete, { type AutoOption } from '../components/Autocomplete';
 
-interface Contract { id: string; save_id: string; team_name: string; team_color: string | null; team_crest_url: string | null; team_catalog_id?: string | null; contract_type?: 'club' | 'international'; signed_year: number | null; signed_month: number | null; monthly_salary: number | null; monthly_salary_currency: string | null; notes: string | null; created_at: string; }
+interface Contract { id: string; save_id: string; team_name: string; team_color: string | null; team_crest_url: string | null; team_catalog_id?: string | null; contract_type?: 'club' | 'international'; signed_year: number | null; signed_month: number | null; ended_year: number | null; ended_month: number | null; monthly_salary: number | null; monthly_salary_currency: string | null; notes: string | null; created_at: string; }
 interface TeamRow { id: string; name: string; country: string | null; primary_color: string | null; text_color: string | null; crest_url: string | null; aliases: string[] | null; }
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 const empty = { team: '', color: '#059669', crest: '', catalogId: null as string | null, signedMonth: '', signedYear: '', salary: '', contractType: 'club' as 'club' | 'international' };
+
+function ContractCard({ c, onEdit, onDel, onResign, durationText }: { c: any; onEdit: () => void; onDel: () => void; onResign?: () => void; durationText: (c: any) => string }) {
+  const endedDate = c.ended_year ? `${c.ended_month ? MONTHS[c.ended_month - 1] + ' ' : ''}${c.ended_year}` : null;
+  return (
+    <div className={`flex items-center gap-3 border rounded-lg p-3 hover:border-emerald-400 transition ${c.ended_year ? 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 opacity-80' : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'}`}>
+      <div className="w-12 h-12 rounded-lg flex items-center justify-center overflow-hidden shrink-0" style={{ background: c.team_color ?? '#0f172a' }}>
+        {c.team_crest_url ? <img src={c.team_crest_url} alt="" className="w-full h-full object-contain p-1" /> : <span className="text-white font-bold">{c.team_name.slice(0, 2).toUpperCase()}</span>}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="font-medium flex items-center gap-2 flex-wrap">
+          <span>{c.team_name}</span>
+          {c.contract_type === 'international' ? (
+            <span className="text-[10px] uppercase font-bold text-blue-700 bg-blue-100 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded">🌍 Intl</span>
+          ) : (
+            <span className="text-[10px] uppercase font-bold text-emerald-700 bg-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-300 px-2 py-0.5 rounded">🏟 Club</span>
+          )}
+          {endedDate && <span className="text-[10px] uppercase font-bold text-slate-500 bg-slate-200 dark:bg-slate-800 dark:text-slate-300 px-2 py-0.5 rounded">Ended · {durationText(c)}</span>}
+        </div>
+        <div className="text-xs text-slate-500 mt-0.5">
+          {c.signed_month ? `${MONTHS[c.signed_month - 1]} ` : ''}{c.signed_year ?? '?'}
+          {endedDate ? ` → ${endedDate}` : ''}
+          {c.monthly_salary != null ? ` · ${c.monthly_salary_currency ?? 'EUR'} ${Number(c.monthly_salary).toLocaleString()}/mo` : ''}
+        </div>
+      </div>
+      {onResign && <button onClick={onResign} className="text-xs text-slate-500 hover:text-amber-600 border border-slate-200 dark:border-slate-700 hover:border-amber-500 rounded-full px-2 py-1" title="Resign">🚪 Resign</button>}
+      <button onClick={onEdit} className="text-xs text-slate-500 hover:text-emerald-600 px-2" title="Edit">✎</button>
+      <button onClick={onDel} className="text-xs text-slate-400 hover:text-red-500 px-2" title="Delete">×</button>
+    </div>
+  );
+}
 
 export default function ContractsPage() {
   const { saveId } = useParams();
@@ -92,6 +122,31 @@ export default function ContractsPage() {
     cancel(); load();
   }
   async function del(id: string) { if (!confirm('Delete?')) return; await supabase.from('contracts').delete().eq('id', id); load(); }
+  async function resign(c: Contract) {
+    const now = new Date();
+    const yStr = prompt(`Resign from ${c.team_name}. End year:`, String(now.getFullYear()));
+    if (!yStr) return;
+    const mStr = prompt('End month (1-12):', String(now.getMonth() + 1));
+    if (!mStr) return;
+    const y = Number(yStr); const m = Number(mStr);
+    if (!y || !m || m < 1 || m > 12) { alert('Invalid date'); return; }
+    const { error } = await supabase.from('contracts').update({ ended_year: y, ended_month: m }).eq('id', c.id);
+    if (error) { alert(error.message); return; }
+    load();
+  }
+  function durationText(c: Contract): string {
+    if (!c.signed_year || !c.ended_year) return '';
+    const start = c.signed_year * 12 + (c.signed_month ?? 1);
+    const end = c.ended_year * 12 + (c.ended_month ?? 12);
+    const months = Math.max(0, end - start);
+    const years = Math.floor(months / 12);
+    const rem = months % 12;
+    if (years === 0) return `${rem} mo`;
+    if (rem === 0) return `${years} yr${years === 1 ? '' : 's'}`;
+    return `${years}y ${rem}m`;
+  }
+  const active = rows.filter((c) => !c.ended_year);
+  const past = rows.filter((c) => c.ended_year);
 
   const teamOptions: AutoOption[] = teams.map((tt) => ({ value: tt.name, label: tt.name, aliases: tt.aliases ?? [], crest_url: tt.crest_url ?? undefined, color: tt.primary_color ?? undefined, meta: { country: tt.country, primary_color: tt.primary_color, text_color: tt.text_color, crest_url: tt.crest_url, id: tt.id } }));
   if (loading) return <Loading />;
@@ -128,26 +183,28 @@ export default function ContractsPage() {
       {rows.length === 0 ? (
         <div className="text-slate-500 border border-dashed border-slate-300 dark:border-slate-700 rounded p-8 text-center bg-white dark:bg-slate-900">No contracts yet.</div>
       ) : (
-        <div className="grid gap-3">{rows.map((c) => editing === c.id ? <div key={c.id}>{Form}</div> : (
-          <div key={c.id} className="flex items-center gap-3 border border-slate-200 dark:border-slate-800 rounded-lg p-3 bg-white dark:bg-slate-900 hover:border-emerald-400 transition">
-            <div className="w-12 h-12 rounded-lg flex items-center justify-center overflow-hidden shrink-0" style={{ background: c.team_color ?? '#0f172a' }}>
-              {c.team_crest_url ? <img src={c.team_crest_url} alt="" className="w-full h-full object-contain p-1" /> : <span className="text-white font-bold">{c.team_name.slice(0,2).toUpperCase()}</span>}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-medium flex items-center gap-2">
-                <span>{c.team_name}</span>
-                {c.contract_type === 'international' ? (
-                  <span className="text-[10px] uppercase font-bold text-blue-700 bg-blue-100 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded">🌍 Intl</span>
-                ) : (
-                  <span className="text-[10px] uppercase font-bold text-emerald-700 bg-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-300 px-2 py-0.5 rounded">🏟 Club</span>
-                )}
-              </div>
-              <div className="text-xs text-slate-500 mt-0.5">{c.signed_month ? `${MONTHS[c.signed_month - 1]} ` : ''}{c.signed_year ?? '?'}{c.monthly_salary != null ? ` · ${c.monthly_salary_currency ?? 'EUR'} ${Number(c.monthly_salary).toLocaleString()}/mo` : ''}</div>
-            </div>
-            <button onClick={() => openEdit(c)} className="text-xs text-slate-500 hover:text-emerald-600 px-2" title="Edit">✎</button>
-            <button onClick={() => del(c.id)} className="text-xs text-slate-400 hover:text-red-500 px-2" title="Delete">×</button>
+        <div className="grid gap-6">
+          {/* ACTIVE */}
+          <div>
+            <div className="text-xs uppercase tracking-wide text-emerald-600 font-semibold mb-2">🟢 Active {active.length > 0 && <span className="text-slate-400 font-normal">({active.length})</span>}</div>
+            {active.length === 0 ? (
+              <div className="text-slate-400 text-xs italic border border-dashed border-slate-200 dark:border-slate-800 rounded p-3 bg-white dark:bg-slate-900">No active contracts.</div>
+            ) : (
+              <div className="grid gap-3">{active.map((c) => editing === c.id ? <div key={c.id}>{Form}</div> : (
+                <ContractCard key={c.id} c={c} onEdit={() => openEdit(c)} onDel={() => del(c.id)} onResign={() => resign(c)} durationText={durationText} />
+              ))}</div>
+            )}
           </div>
-        ))}</div>
+          {/* PAST */}
+          {past.length > 0 && (
+            <div>
+              <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-2">📁 Previous <span className="text-slate-400 font-normal">({past.length})</span></div>
+              <div className="grid gap-3">{past.map((c) => editing === c.id ? <div key={c.id}>{Form}</div> : (
+                <ContractCard key={c.id} c={c} onEdit={() => openEdit(c)} onDel={() => del(c.id)} durationText={durationText} />
+              ))}</div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

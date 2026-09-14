@@ -18,6 +18,8 @@ export default function SavesPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState('');
   const [newCover, setNewCover] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
   const dragId = useRef<string | null>(null);
 
   async function load() {
@@ -61,6 +63,14 @@ export default function SavesPage() {
     await Promise.all(next.map((s, i) => supabase.from('career_saves').update({ sort_order: i + 1 }).eq('id', s.id)));
   }
 
+  function startEdit(s: Save) { setEditingId(s.id); setEditName(s.name); }
+  function cancelEdit() { setEditingId(null); setEditName(''); }
+  async function saveEdit(s: Save) {
+    if (!editName.trim() || editName === s.name) { cancelEdit(); return; }
+    const { error } = await supabase.from('career_saves').update({ name: editName.trim() }).eq('id', s.id);
+    if (error) { alert(error.message); return; }
+    cancelEdit(); load();
+  }
   async function del(s: Save) {
     if (!confirm(`Delete "${s.name}" and ALL its seasons?`)) return;
     await supabase.from('career_saves').delete().eq('id', s.id); load();
@@ -109,15 +119,29 @@ export default function SavesPage() {
                 onDrop={() => onDrop(s.id)}
                 className="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-emerald-400 rounded-lg flex items-stretch overflow-hidden cursor-move transition">
                 <div className={`w-1.5 bg-gradient-to-b ${grad}`} />
-                <Link to={`/save/${s.id}`} className="flex-1 flex items-center gap-3 px-4 py-3 min-w-0">
-                  <span className="text-xs font-mono text-slate-400 w-6">#{idx + 1}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">{s.name}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">{new Date(s.created_at).toLocaleDateString()}</div>
+                {editingId === s.id ? (
+                  <div className="flex-1 flex items-center gap-2 px-4 py-3 min-w-0">
+                    <span className="text-xs font-mono text-slate-400 w-6">#{idx + 1}</span>
+                    <input autoFocus value={editName} onChange={(e) => setEditName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(s); if (e.key === 'Escape') cancelEdit(); }} className="flex-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-2 py-1 text-sm" />
+                    <button onClick={() => saveEdit(s)} className="text-emerald-600 hover:text-emerald-500 text-sm px-2" title="Save">✓</button>
+                    <button onClick={cancelEdit} className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-sm px-2" title="Cancel">✕</button>
                   </div>
-                  <svg className="w-4 h-4 text-slate-300 group-hover:text-emerald-500 transition shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
-                </Link>
-                <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); del(s); }} className="px-3 text-slate-300 hover:text-red-500 text-lg" title="Delete">×</button>
+                ) : (
+                  <Link to={`/save/${s.id}`} className="flex-1 flex items-center gap-3 px-4 py-3 min-w-0">
+                    <span className="text-xs font-mono text-slate-400 w-6">#{idx + 1}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">{s.name}</div>
+                      <div className="text-xs text-slate-500 mt-0.5">{new Date(s.created_at).toLocaleDateString()}</div>
+                    </div>
+                    <svg className="w-4 h-4 text-slate-300 group-hover:text-emerald-500 transition shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+                  </Link>
+                )}
+                {editingId !== s.id && (
+                  <>
+                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); startEdit(s); }} className="px-2 text-slate-300 hover:text-emerald-500 text-sm" title="Edit name">✎</button>
+                    <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); del(s); }} className="px-3 text-slate-300 hover:text-red-500 text-lg" title="Delete">×</button>
+                  </>
+                )}
               </div>
             );
           })}

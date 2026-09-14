@@ -160,8 +160,27 @@ function computeHighlight(p: SquadPlayer, prev: SquadPlayer | undefined): 'up' |
   if (cur < old) return 'down';
   return null;
 }
+type SortKey = 'jersey' | 'position' | 'name_snapshot' | 'age' | 'ovr' | 'nationality_snapshot' | 'since_year';
 function ClubSquad({ t, grouped, players, prevSnapshot, onPlayerClick, onReload }: { t: any; grouped: Record<SquadRole, SquadPlayer[]>; players: SquadPlayer[]; prevSnapshot: Map<string, SquadPlayer>; onPlayerClick: (id: string) => void; onReload: () => void }) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>('jersey');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  function toggleSort(k: SortKey) {
+    if (sortKey === k) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortKey(k); setSortDir('asc'); }
+  }
+  function sortRows(rows: SquadPlayer[]): SquadPlayer[] {
+    const sign = sortDir === 'asc' ? 1 : -1;
+    return [...rows].sort((a: any, b: any) => {
+      const av = a[sortKey]; const bv = b[sortKey];
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * sign;
+      return String(av).localeCompare(String(bv)) * sign;
+    });
+  }
+  const arrow = (k: SortKey) => sortKey === k ? (sortDir === 'asc' ? ' ↑' : ' ↓') : '';
   async function delPlayer(id: string) { if (!confirm('Delete player?')) return; await supabase.from('squad_players').delete().eq('id', id); onReload(); }
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<string>('');
@@ -207,10 +226,19 @@ function ClubSquad({ t, grouped, players, prevSnapshot, onPlayerClick, onReload 
           <div className="border border-slate-200 dark:border-slate-800 rounded overflow-hidden bg-white dark:bg-slate-900">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs uppercase">
-                <tr><th className="text-left px-3 py-2 w-10">{t('th_num')}</th><th className="text-left px-3 py-2 w-16">{t('th_pos')}</th><th className="text-left px-3 py-2">{t('th_name')}</th><th className="text-right px-3 py-2 w-14">{t('th_age')}</th><th className="text-right px-3 py-2 w-14">{t('th_ovr')}</th><th className="text-left px-3 py-2 w-28">{t('th_nat')}</th><th className="text-right px-3 py-2 w-16">{t('th_since')}</th><th className="w-16"></th></tr>
+                <tr>
+                  <th className="text-left px-3 py-2 w-10 cursor-pointer hover:text-emerald-600" onClick={() => toggleSort('jersey')}>{t('th_num')}{arrow('jersey')}</th>
+                  <th className="text-left px-3 py-2 w-16 cursor-pointer hover:text-emerald-600" onClick={() => toggleSort('position')}>{t('th_pos')}{arrow('position')}</th>
+                  <th className="text-left px-3 py-2 cursor-pointer hover:text-emerald-600" onClick={() => toggleSort('name_snapshot')}>{t('th_name')}{arrow('name_snapshot')}</th>
+                  <th className="text-right px-3 py-2 w-14 cursor-pointer hover:text-emerald-600" onClick={() => toggleSort('age')}>{t('th_age')}{arrow('age')}</th>
+                  <th className="text-right px-3 py-2 w-14 cursor-pointer hover:text-emerald-600" onClick={() => toggleSort('ovr')}>{t('th_ovr')}{arrow('ovr')}</th>
+                  <th className="text-left px-3 py-2 w-28 cursor-pointer hover:text-emerald-600" onClick={() => toggleSort('nationality_snapshot')}>{t('th_nat')}{arrow('nationality_snapshot')}</th>
+                  <th className="text-right px-3 py-2 w-16 cursor-pointer hover:text-emerald-600" onClick={() => toggleSort('since_year')}>{t('th_since')}{arrow('since_year')}</th>
+                  <th className="w-16"></th>
+                </tr>
               </thead>
               <tbody>
-                {grouped[role].length === 0 ? (<tr><td colSpan={8} className="text-center text-slate-400 py-6">{t('no_players')}</td></tr>) : grouped[role].map((p) => {
+                {grouped[role].length === 0 ? (<tr><td colSpan={8} className="text-center text-slate-400 py-6">{t('no_players')}</td></tr>) : sortRows(grouped[role]).map((p) => {
                   if (editingId === p.id) return <InlineEditRow key={p.id} p={p} onSaved={() => { setEditingId(null); onReload(); }} onCancel={() => setEditingId(null)} onDelete={() => { setEditingId(null); delPlayer(p.id); }} />;
                   const hi = computeHighlight(p, prevSnapshot.get(p.name_snapshot.toLowerCase()));
                   const rowBg = hi === 'up' ? 'bg-emerald-50/70 dark:bg-emerald-900/20' : hi === 'down' ? 'bg-red-50/70 dark:bg-red-900/20' : '';
