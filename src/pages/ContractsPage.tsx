@@ -5,11 +5,11 @@ import { useLang } from '../lib/i18n';
 import Loading from '../components/Loading';
 import Autocomplete, { type AutoOption } from '../components/Autocomplete';
 
-interface Contract { id: string; save_id: string; team_name: string; team_color: string | null; team_crest_url: string | null; team_catalog_id?: string | null; signed_year: number | null; signed_month: number | null; monthly_salary: number | null; monthly_salary_currency: string | null; notes: string | null; created_at: string; }
+interface Contract { id: string; save_id: string; team_name: string; team_color: string | null; team_crest_url: string | null; team_catalog_id?: string | null; contract_type?: 'club' | 'international'; signed_year: number | null; signed_month: number | null; monthly_salary: number | null; monthly_salary_currency: string | null; notes: string | null; created_at: string; }
 interface TeamRow { id: string; name: string; country: string | null; primary_color: string | null; text_color: string | null; crest_url: string | null; aliases: string[] | null; }
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-const empty = { team: '', color: '#059669', crest: '', catalogId: null as string | null, signedMonth: '', signedYear: '', salary: '' };
+const empty = { team: '', color: '#059669', crest: '', catalogId: null as string | null, signedMonth: '', signedYear: '', salary: '', contractType: 'club' as 'club' | 'international' };
 
 export default function ContractsPage() {
   const { saveId } = useParams();
@@ -39,6 +39,7 @@ export default function ContractsPage() {
       signedMonth: c.signed_month ? String(c.signed_month) : '',
       signedYear: c.signed_year ? String(c.signed_year) : '',
       salary: c.monthly_salary != null ? String(c.monthly_salary) : '',
+      contractType: c.contract_type ?? 'club',
     });
     setEditing(c.id);
   }
@@ -46,11 +47,48 @@ export default function ContractsPage() {
 
   async function save() {
     if (!saveId || !f.team.trim()) return;
-    const payload: any = { save_id: saveId, team_name: f.team.trim(), team_color: f.color || null, team_crest_url: f.crest || null, team_catalog_id: f.catalogId, signed_year: f.signedYear ? Number(f.signedYear) : null, signed_month: f.signedMonth ? Number(f.signedMonth) : null, monthly_salary: f.salary ? Number(f.salary) : null };
+    const payload: any = { save_id: saveId, team_name: f.team.trim(), team_color: f.color || null, team_crest_url: f.crest || null, team_catalog_id: f.catalogId, contract_type: f.contractType, signed_year: f.signedYear ? Number(f.signedYear) : null, signed_month: f.signedMonth ? Number(f.signedMonth) : null, monthly_salary: f.salary ? Number(f.salary) : null };
     let error;
-    if (editing === 'new') ({ error } = await supabase.from('contracts').insert(payload));
-    else ({ error } = await supabase.from('contracts').update(payload).eq('id', editing!));
+    let newContract: any = null;
+    if (editing === 'new') {
+      const ins = await supabase.from('contracts').insert(payload).select().maybeSingle();
+      error = ins.error; newContract = ins.data;
+    } else {
+      ({ error } = await supabase.from('contracts').update(payload).eq('id', editing!));
+    }
     if (error) { alert(error.message); return; }
+
+    // Auto-create a matching season for new contracts if none exists yet.
+    // Club contracts create a full season (label=Season YYYY-YYYY, is_current=true).
+    // International contracts merge into the CURRENT season by writing the
+    // national_team fields (since they run in parallel with the club season).
+    if (newContract && f.signedYear) {
+      const y = Number(f.signedYear);
+      if (f.contractType === 'international') {
+        const { data: cur } = await supabase.from('seasons').select('id').eq('save_id', saveId).eq('is_current', true).maybeSingle();
+        if (cur) {
+          await supabase.from('seasons').update({ national_team: f.team.trim(), national_team_color: f.color || null, national_team_since_year: y, national_since_month: f.signedMonth ? Number(f.signedMonth) : null }).eq('id', cur.id);
+        } else {
+          alert('International contract saved. Create a club season first so we can attach the national team info.');
+        }
+      } else {
+        const label = `Season ${y}-${y + 1}`;
+        const { data: existing } = await supabase.from('seasons').select('id').eq('save_id', saveId).eq('label', label).maybeSingle();
+        if (!existing) {
+          await supabase.from('seasons').insert({
+            save_id: saveId,
+            label,
+            team_id: f.catalogId,
+            team_name_snapshot: f.team.trim(),
+            team_color: f.color || null,
+            club_since_year: y,
+            contract_id: newContract.id ?? null,
+            is_current: true,
+          });
+          await supabase.from('seasons').update({ is_current: false }).eq('save_id', saveId).neq('label', label);
+        }
+      }
+    }
     cancel(); load();
   }
   async function del(id: string) { if (!confirm('Delete?')) return; await supabase.from('contracts').delete().eq('id', id); load(); }
@@ -60,7 +98,11 @@ export default function ContractsPage() {
 
   const Form = (
     <div className="bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 rounded-lg p-4 mb-4 grid gap-2 sm:grid-cols-2">
-      <Autocomplete value={f.team} onChange={(v, opt) => { setF((p) => ({ ...p, team: v, color: opt?.meta?.primary_color ?? p.color, crest: opt?.meta?.crest_url ?? p.crest, catalogId: opt?.meta?.id ?? p.catalogId })); }} options={teamOptions} placeholder="Team (type to search)" />
+      <div className="sm:col-span-2 flex gap-2 mb-1">
+        <button type="button" onClick={() => setF((p) => ({ ...p, contractType: 'club' }))} className={`flex-1 text-sm rounded-lg px-3 py-2 border transition ${f.contractType === 'club' ? 'bg-emerald-600 text-white border-emerald-600' : 'border-slate-300 dark:border-slate-700 hover:border-emerald-400'}`}>🏟 Club</button>
+        <button type="button" onClick={() => setF((p) => ({ ...p, contractType: 'international' }))} className={`flex-1 text-sm rounded-lg px-3 py-2 border transition ${f.contractType === 'international' ? 'bg-blue-600 text-white border-blue-600' : 'border-slate-300 dark:border-slate-700 hover:border-blue-400'}`}>🌍 International</button>
+      </div>
+      <Autocomplete value={f.team} onChange={(v, opt) => { setF((p) => ({ ...p, team: v, color: opt?.meta?.primary_color ?? p.color, crest: opt?.meta?.crest_url ?? p.crest, catalogId: opt?.meta?.id ?? p.catalogId })); }} options={teamOptions} placeholder={f.contractType === 'international' ? 'National team (e.g. Senegal)' : 'Team (type to search)'} />
       <div className="flex gap-2 items-center">
         <input type="color" value={f.color} onChange={(e) => setF({ ...f, color: e.target.value })} className="w-10 h-10 rounded border border-slate-300 dark:border-slate-700" />
         <input value={f.color} onChange={(e) => setF({ ...f, color: e.target.value })} placeholder="#hex" className="flex-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm" />
@@ -91,7 +133,17 @@ export default function ContractsPage() {
             <div className="w-12 h-12 rounded-lg flex items-center justify-center overflow-hidden shrink-0" style={{ background: c.team_color ?? '#0f172a' }}>
               {c.team_crest_url ? <img src={c.team_crest_url} alt="" className="w-full h-full object-contain p-1" /> : <span className="text-white font-bold">{c.team_name.slice(0,2).toUpperCase()}</span>}
             </div>
-            <div className="flex-1 min-w-0"><div className="font-medium">{c.team_name}</div><div className="text-xs text-slate-500 mt-0.5">{c.signed_month ? `${MONTHS[c.signed_month - 1]} ` : ''}{c.signed_year ?? '?'}{c.monthly_salary != null ? ` · ${c.monthly_salary_currency ?? 'EUR'} ${Number(c.monthly_salary).toLocaleString()}/mo` : ''}</div></div>
+            <div className="flex-1 min-w-0">
+              <div className="font-medium flex items-center gap-2">
+                <span>{c.team_name}</span>
+                {c.contract_type === 'international' ? (
+                  <span className="text-[10px] uppercase font-bold text-blue-700 bg-blue-100 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded">🌍 Intl</span>
+                ) : (
+                  <span className="text-[10px] uppercase font-bold text-emerald-700 bg-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-300 px-2 py-0.5 rounded">🏟 Club</span>
+                )}
+              </div>
+              <div className="text-xs text-slate-500 mt-0.5">{c.signed_month ? `${MONTHS[c.signed_month - 1]} ` : ''}{c.signed_year ?? '?'}{c.monthly_salary != null ? ` · ${c.monthly_salary_currency ?? 'EUR'} ${Number(c.monthly_salary).toLocaleString()}/mo` : ''}</div>
+            </div>
             <button onClick={() => openEdit(c)} className="text-xs text-slate-500 hover:text-emerald-600 px-2" title="Edit">✎</button>
             <button onClick={() => del(c.id)} className="text-xs text-slate-400 hover:text-red-500 px-2" title="Delete">×</button>
           </div>

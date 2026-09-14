@@ -28,11 +28,6 @@ export default function SavePage() {
   const [eNationalSinceMonth, setENationalSinceMonth] = useState('');
   const [eNationalSinceYear, setENationalSinceYear] = useState('');
   const [eIsCurrent, setEIsCurrent] = useState(false);
-  const [nationalTeam, setNationalTeam] = useState('');
-  const [nationalTeamColor, setNationalTeamColor] = useState<string | null>(null);
-  const [nationalSinceMonth, setNationalSinceMonth] = useState('');
-  const [nationalSinceYear, setNationalSinceYear] = useState('');
-  const [teams, setTeams] = useState<TeamRow[]>([]);
   const dragId = useRef<string | null>(null);
 
   async function load() {
@@ -44,31 +39,54 @@ export default function SavePage() {
     ]);
     setSave(s); setSeasons(se ?? []); setLoading(false);
     try { const stored = localStorage.getItem(`tileOrder:${saveId}`); if (stored) { const parsed = JSON.parse(stored) as TileKey[]; if (parsed.every((k) => DEFAULT_ORDER.includes(k))) setTileOrder(parsed); } } catch {}
-    // Suggest the next season's since year from the most recent season.
-    // Label is derived automatically from since year at submit time.
-    if (se && se.length) {
-      let maxEnd = 0;
-      for (const s of se) {
-        const m = /Season\s+(\d{4})-(\d{4})|^(\d{4})-(\d{4})$/.exec(s.label);
-        if (m) { const y2 = Number(m[2] ?? m[4]); if (y2 > maxEnd) maxEnd = y2; }
-      }
-      if (maxEnd > 0) setNationalSinceYear(String(maxEnd));
-    } else { setNationalSinceYear('2026'); }
-    // Load team catalog for the autocomplete
-    const { data: cats } = await supabase.from('team_catalog').select('*').order('name', { ascending: true });
-    setTeams((cats ?? []) as TeamRow[]);
   }
   useEffect(() => { load(); }, [saveId]);
 
   async function createSeason() {
-    if (!saveId || !nationalSinceYear) return;
-    const y = Number(nationalSinceYear);
-    if (!y) return;
-    const derivedLabel = `Season ${y}-${y + 1}`;
-    const payload: any = { save_id: saveId, label: derivedLabel, national_team: nationalTeam.trim() || null, national_team_color: nationalTeamColor, national_team_since_year: y, national_since_month: nationalSinceMonth ? Number(nationalSinceMonth) : null, is_current: false };
-    const { error } = await supabase.from('seasons').insert(payload);
-    if (error) { alert('Error: ' + error.message); return; }
-    setNationalTeam(''); setNationalTeamColor(null); setNationalSinceMonth(''); setNationalSinceYear(String(y + 1)); setShowSeasonForm(false); load();
+    if (!saveId) return;
+    // Find the active club contract (most recent). International contracts
+    // don't spawn a new season on their own — they merge into the current one.
+    const { data: contracts } = await supabase.from('contracts').select('*').eq('save_id', saveId).order('signed_year', { ascending: false });
+    const contract = contracts?.find((c: any) => (c.contract_type ?? 'club') === 'club');
+    if (!contract) { alert('You need an active club contract first. Go to Contracts and create one.'); return; }
+
+    // Determine the next season's start year: max end year across existing seasons, or contract signed_year
+    let nextYear = contract.signed_year ?? new Date().getFullYear();
+    for (const s of seasons) {
+      const m = /Season\s+(\d{4})-(\d{4})|^(\d{4})-(\d{4})$/.exec(s.label);
+      if (m) { const end = Number(m[2] ?? m[4]); if (end > nextYear) nextYear = end; }
+    }
+    const label = `Season ${nextYear}-${nextYear + 1}`;
+    // Guard against duplicates
+    if (seasons.some((s) => s.label === label)) { alert(`${label} already exists.`); return; }
+
+    const insertPayload: any = {
+      save_id: saveId,
+      label,
+      team_id: contract.team_catalog_id ?? null,
+      team_name_snapshot: contract.team_name,
+      team_color: contract.team_color,
+      club_since_year: contract.signed_year,
+      contract_id: contract.id,
+      is_current: true,
+    };
+    const { data: newSeason, error } = await supabase.from('seasons').insert(insertPayload).select().maybeSingle();
+    if (error || !newSeason) { alert('Error: ' + (error?.message ?? 'insert failed')); return; }
+    // Unmark other current seasons
+    await supabase.from('seasons').update({ is_current: false }).eq('save_id', saveId).neq('id', newSeason.id);
+
+    // Copy previous season's squad (age +1) so the user can edit right away
+    const prev = [...seasons].sort((a, b) => (a.label > b.label ? -1 : 1))[0];
+    if (prev) {
+      const { data: prevSq } = await supabase.from('squad_players').select('*').eq('season_id', prev.id);
+      if (prevSq?.length) {
+        const rows = prevSq.map((p: any) => ({ season_id: newSeason.id, name_snapshot: p.name_snapshot, jersey: p.jersey, position: p.position, age: p.age != null ? p.age + 1 : null, ovr: p.ovr, nationality_snapshot: p.nationality_snapshot, since_year: p.since_year, role: p.role, photo_url: p.photo_url, player_id: p.player_id, formation_slot: p.formation_slot }));
+        await supabase.from('squad_players').insert(rows);
+      }
+    }
+
+    setShowSeasonForm(false); load();
+    navigate(`/season/${newSeason.id}`);
   }
 
   function startEdit(s: Season) {
@@ -143,7 +161,7 @@ export default function SavePage() {
           <button onClick={() => navigate(`/save/${saveId}/contracts`)} className="border border-slate-300 dark:border-slate-700 hover:border-emerald-400 rounded-lg px-4 py-2 text-sm font-medium flex items-center gap-2 transition">
             <ContractIcon width={16} height={16} /> Contracts
           </button>
-          <button onClick={() => setShowSeasonForm((v) => !v)} className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm font-medium flex items-center gap-2 transition">
+          <button onClick={createSeason} className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-4 py-2 text-sm font-medium flex items-center gap-2 transition">
             <PlusIcon width={16} height={16} /> {t('new_season')}
           </button>
         </div>
