@@ -50,7 +50,7 @@ export default function CareerPage() {
   return (
     <div>
       <Link to={`/save/${saveId}`} className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 text-sm">{t('back_save')}</Link>
-      <h1 className="text-2xl font-bold mt-2 mb-6">{t('career')} · {save.name}</h1>
+      <h1 className="text-2xl font-bold mt-2 mb-6 text-center">Whole Career · {save.name}</h1>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">
         {[['Clubs', clubs.length], ['Countries', intls.length], ['Awards', awards.length], ['Since', clubs.length ? Math.min(...clubs.map((c) => c.signed_year ?? 9999)) : '—']].map(([l, v]) => (

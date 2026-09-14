@@ -138,9 +138,9 @@ export default function SavePage() {
 
   return (
     <div>
-      <Link to={`/game/${encodeURIComponent(save.game_edition ?? '')}`} className="text-emerald-600 text-xs uppercase font-semibold tracking-wide">{save.game_edition ?? '—'}</Link>
+      <Link to={`/game/${encodeURIComponent(save.game_edition ?? '')}`} className="text-emerald-600 text-xs uppercase font-semibold tracking-wide flex items-center gap-1 hover:text-emerald-500">← {save.game_edition ?? '—'}</Link>
       <div className="mt-1 mb-6 flex items-start justify-between gap-3 flex-wrap">
-        <div>
+        <div className="flex-1 text-center">
           <h1 className="text-3xl font-bold">{save.name}</h1>
           <p className="text-slate-500 text-sm mt-1">{seasons.length} {t('seasons')}</p>
         </div>
@@ -161,7 +161,7 @@ export default function SavePage() {
           const Icon = tile.icon;
           return (
             <button key={key} disabled={tile.disabled} onClick={tile.onClick}
-              className={`text-left rounded-xl p-4 border bg-gradient-to-br ${tile.accent} hover:scale-[1.02] transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100`}>
+              className={`text-left rounded-2xl p-4 border-2 bg-gradient-to-br ${tile.accent} hover:rounded-3xl hover:shadow-lg transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:rounded-2xl`}>
               <Icon width={22} height={22} />
               <div className="mt-3 font-semibold text-slate-900 dark:text-slate-100">{tile.title}</div>
               {tile.subtitle && <div className="text-xs mt-1 opacity-75">{tile.subtitle}</div>}

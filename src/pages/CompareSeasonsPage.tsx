@@ -35,7 +35,8 @@ export default function CompareSeasonsPage() {
   return (
     <div>
       <Link to={`/save/${saveId}`} className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 text-sm">{t('back_save')}</Link>
-      <h1 className="text-2xl font-bold mt-2 mb-4">Compare seasons</h1>
+      <h1 className="text-2xl font-bold mt-2 mb-2 text-center">Compare seasons</h1>
+      <p className="text-xs text-slate-500 text-center mb-4">Squad diff between two seasons: who stayed, who left, who joined.</p>
       <div className="grid grid-cols-2 gap-3 mb-6">
         {[[aId, setAId], [bId, setBId]].map(([id, setter], idx) => (
           <select key={idx} value={id as string} onChange={(e) => (setter as any)(e.target.value)} className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-2 text-sm">

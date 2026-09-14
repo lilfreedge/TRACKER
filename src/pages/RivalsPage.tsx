@@ -51,7 +51,7 @@ export default function RivalsPage() {
   return (
     <div>
       <Link to={`/save/${saveId}`} className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 text-sm">{t('back_save')}</Link>
-      <h1 className="text-2xl font-bold mt-2 mb-4">{t('rivals')}</h1>
+      <h1 className="text-2xl font-bold mt-2 mb-4 text-center">{t('rivals')}</h1>
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 mb-6 grid gap-2 sm:grid-cols-4">
         <div className="sm:col-span-2">
           <Autocomplete value={team} onChange={(v, opt) => { setTeam(v); if (opt) { if (opt.meta?.primary_color) setColor(opt.meta.primary_color); if (opt.meta?.crest_url) setLogoUrl(opt.meta.crest_url); } }} options={teamOptions} placeholder={t('rival_placeholder')} />

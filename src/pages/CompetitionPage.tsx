@@ -65,7 +65,7 @@ export default function CompetitionPage() {
     <div>
       <Link to={`/save/${saveId}`} className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 text-sm">{t('back_save')}</Link>
       <div className="mt-2 mb-6 flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="text-2xl font-bold">{showHidden ? 'Hidden leagues' : t('competition')}</h1>
+        <h1 className="text-2xl font-bold flex-1 text-center">{showHidden ? 'Hidden leagues' : 'Competitions'}</h1>
         <div className="flex gap-2">
           <button onClick={() => setShowHidden((v) => !v)} className="border border-slate-300 dark:border-slate-700 hover:border-emerald-400 rounded-lg px-3 py-2 text-xs font-medium transition">
             {showHidden ? `← Visible (${visible.length})` : `👁 Hidden (${hidden.length})`}
