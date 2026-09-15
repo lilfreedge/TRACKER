@@ -60,6 +60,7 @@ export default function SavePage() {
       team_name_snapshot: contract.team_name,
       team_color: contract.team_color,
       club_since_year: contract.signed_year,
+      club_since_month: contract.signed_month,
       contract_id: contract.id,
       is_current: true,
     };

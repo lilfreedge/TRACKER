@@ -72,7 +72,10 @@ export default function SeasonPage() {
   const bannerBg = tab === 'international' && hasIntl ? (season.national_team_color || '#1e293b') : (season.team_color || '#1e293b');
   const bannerText = tab === 'international' && hasIntl ? (season.national_team_text_color || '#fff') : (season.team_text_color || '#fff');
   const bannerTitle = tab === 'international' && hasIntl ? season.national_team : season.team_name_snapshot;
-  const bannerSince = tab === 'international' && hasIntl ? season.national_team_since_year : season.club_since_year;
+  const bannerSinceYear = tab === 'international' && hasIntl ? season.national_team_since_year : season.club_since_year;
+  const bannerSinceMonth = tab === 'international' && hasIntl ? season.national_since_month : (season as any).club_since_month;
+  const MONTHS_UP = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  const bannerSince = bannerSinceYear ? `${bannerSinceMonth ? MONTHS_UP[bannerSinceMonth - 1] + ' ' : ''}${bannerSinceYear}` : null;
   return (
     <div>
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -211,7 +214,15 @@ function ClubSquad({ t, grouped, players, prevSnapshot, seasonStartYear, onPlaye
     });
   }
   const arrow = (k: SortKey) => sortKey === k ? (sortDir === 'asc' ? ' ↑' : ' ↓') : '';
-  async function delPlayer(id: string) { if (!confirm('Delete player?')) return; await supabase.from('squad_players').delete().eq('id', id); onReload(); }
+  async function delPlayer(id: string) {
+    if (!confirm('Remove player from squad? Will be recorded in Ex-players.')) return;
+    const { data: p } = await supabase.from('squad_players').select('*').eq('id', id).maybeSingle();
+    if (p) {
+      await supabase.from('ex_players').insert({ season_id: p.season_id, player_name: p.name_snapshot, position: p.position, ovr: p.ovr, year_gone: new Date().getFullYear() });
+    }
+    await supabase.from('squad_players').delete().eq('id', id);
+    onReload();
+  }
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<string>('');
   const missing = players.filter((p) => !p.photo_url);

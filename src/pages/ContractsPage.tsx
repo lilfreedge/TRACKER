@@ -122,6 +122,7 @@ export default function ContractsPage() {
             team_name_snapshot: f.team.trim(),
             team_color: f.color || null,
             club_since_year: y,
+            club_since_month: f.signedMonth ? Number(f.signedMonth) : null,
             contract_id: newContract.id ?? null,
             is_current: true,
           });

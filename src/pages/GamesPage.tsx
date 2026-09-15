@@ -102,7 +102,9 @@ export default function GamesPage() {
               return (
                 <button key={gt.id} onClick={() => gt.implemented && setNewType(gt.id)} disabled={!gt.implemented}
                   className={`text-left border rounded-lg px-3 py-2 text-xs transition flex items-center gap-2 ${active ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'border-slate-200 dark:border-slate-800 hover:border-slate-400'} ${!gt.implemented ? 'opacity-40 cursor-not-allowed' : ''}`}>
-                  <div className={`w-5 h-5 rounded bg-gradient-to-br ${gt.color}`} />
+                  <div className={`w-6 h-6 rounded bg-gradient-to-br ${gt.color} flex items-center justify-center overflow-hidden shrink-0`}>
+                    {gt.logo_url ? <img src={gt.logo_url} alt="" className="w-full h-full object-contain p-0.5" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} /> : null}
+                  </div>
                   <span className="font-semibold">{gt.label}</span>
                   {!gt.implemented && <span className="text-[9px] font-normal text-slate-400">soon</span>}
                 </button>
