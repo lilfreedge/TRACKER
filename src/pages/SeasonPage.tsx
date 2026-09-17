@@ -23,7 +23,6 @@ export default function SeasonPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('club');
   const [neighbors, setNeighbors] = useState<{ prev: string | null; next: string | null }>({ prev: null, next: null });
-  const [prevSnapshot, setPrevSnapshot] = useState<Map<string, SquadPlayer>>(new Map());
   async function load() {
     if (!seasonId) return;
     setLoading(true);
@@ -52,14 +51,6 @@ export default function SeasonPage() {
         const prevId = idx > 0 ? all[idx - 1].id : null;
         const nextId = idx >= 0 && idx < all.length - 1 ? all[idx + 1].id : null;
         setNeighbors({ prev: prevId, next: nextId });
-        if (prevId) {
-          const { data: prevSq } = await supabase.from('squad_players').select('*').eq('season_id', prevId);
-          const map = new Map<string, SquadPlayer>();
-          for (const p of (prevSq ?? []) as SquadPlayer[]) map.set(p.name_snapshot.toLowerCase(), p);
-          setPrevSnapshot(map);
-        } else {
-          setPrevSnapshot(new Map());
-        }
       }
     }
   }
@@ -112,7 +103,7 @@ export default function SeasonPage() {
       {tab === 'club' && (
         <>
           <SquadAddPanel seasonId={season.id} saveId={season.save_id} onReload={load} />
-          <ClubSquad t={t} grouped={grouped} players={players} prevSnapshot={prevSnapshot} seasonStartYear={(() => { const m = /(\d{4})-\d{4}/.exec(season.label); return m ? Number(m[1]) : null; })()} onPlayerClick={(id) => navigate(`/player/${id}`)} onReload={load} />
+          <ClubSquad t={t} grouped={grouped} players={players} onPlayerClick={(id) => navigate(`/player/${id}`)} onReload={load} />
         </>
       )}
       {tab === 'international' && <InternationalSquad t={t} entries={national} country={season.national_team ?? '?'} />}
@@ -168,29 +159,11 @@ function InlineEditRow({ p, onSaved, onCancel, onDelete }: { p: SquadPlayer; onS
     </tr>
   );
 }
-const ROLE_RANK: Record<SquadRole, number> = { starting: 4, bench: 3, reserve: 2, loaned: 1 };
-function computeHighlight(p: SquadPlayer, prev: SquadPlayer | undefined, seasonStartYear: number | null, hasPrevSeason: boolean): 'up' | 'down' | null {
-  // If there is no previous season at all, don't highlight anything — no baseline to compare to.
-  if (!hasPrevSeason) return null;
-  if (!prev) {
-    // New name that wasn't on the previous season roster. Only mark as new signing if since_year matches this season.
-    if (seasonStartYear && p.since_year != null && p.since_year < seasonStartYear) return null;
-    return 'up';
-  }
-  if ((p.ovr ?? 0) > (prev.ovr ?? 0)) return 'up';
-  if ((p.ovr ?? 0) < (prev.ovr ?? 0)) return 'down';
-  if (p.jersey != null && prev.jersey != null && p.jersey !== prev.jersey) return 'up';
-  const cur = ROLE_RANK[p.role] ?? 0;
-  const old = ROLE_RANK[prev.role] ?? 0;
-  if (cur > old) return 'up';
-  if (cur < old) return 'down';
-  return null;
-}
 type SortKey = 'jersey' | 'position' | 'name_snapshot' | 'age' | 'ovr' | 'nationality_snapshot' | 'since_year' | 'formation';
 // 4-1-4-1 tactical order (top → bottom of the pitch)
 const FORMATION_RANK: Record<string, number> = { ST: 1, CF: 1, LF: 1, RF: 1, LW: 2, LM: 2, RW: 3, RM: 3, CM: 4, CAM: 4, CDM: 6, LB: 7, LWB: 7, CB: 8, RB: 10, RWB: 10, GK: 11 };
 function formationRank(pos: string | null): number { if (!pos) return 99; return FORMATION_RANK[pos] ?? 99; }
-function ClubSquad({ t, grouped, players, prevSnapshot, seasonStartYear, onPlayerClick, onReload }: { t: any; grouped: Record<SquadRole, SquadPlayer[]>; players: SquadPlayer[]; prevSnapshot: Map<string, SquadPlayer>; seasonStartYear: number | null; onPlayerClick: (id: string) => void; onReload: () => void }) {
+function ClubSquad({ t, grouped, players, onPlayerClick, onReload }: { t: any; grouped: Record<SquadRole, SquadPlayer[]>; players: SquadPlayer[]; onPlayerClick: (id: string) => void; onReload: () => void }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('jersey');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
