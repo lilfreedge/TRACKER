@@ -74,8 +74,8 @@ export default function SeasonPage() {
   const bannerTitle = tab === 'international' && hasIntl ? season.national_team : season.team_name_snapshot;
   const bannerSinceYear = tab === 'international' && hasIntl ? season.national_team_since_year : season.club_since_year;
   const bannerSinceMonth = tab === 'international' && hasIntl ? season.national_since_month : (season as any).club_since_month;
-  const MONTHS_UP = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-  const bannerSince = bannerSinceYear ? `${bannerSinceMonth ? MONTHS_UP[bannerSinceMonth - 1] + ' ' : ''}${bannerSinceYear}` : null;
+  const MONTHS_TITLE = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const bannerSince = bannerSinceYear ? `${bannerSinceMonth ? MONTHS_TITLE[bannerSinceMonth - 1] + ' ' : ''}${bannerSinceYear}` : null;
   return (
     <div>
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -153,7 +153,6 @@ function InlineEditRow({ p, onSaved, onCancel, onDelete }: { p: SquadPlayer; onS
       <td className="px-1 py-1"><input value={jersey} onChange={(e) => setJersey(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1 py-0.5 text-xs" /></td>
       <td className="px-1 py-1"><select value={pos} onChange={(e) => setPos(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1 py-0.5 text-xs"><option value="">?</option>{POSITIONS.map((x) => <option key={x}>{x}</option>)}</select></td>
       <td className="px-1 py-1"><input value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1 py-0.5 text-xs" /></td>
-      <td className="px-1 py-1 text-slate-300 text-center">—</td>
       <td className="px-1 py-1"><input value={age} onChange={(e) => setAge(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1 py-0.5 text-xs text-right" /></td>
       <td className="px-1 py-1"><input value={ovr} onChange={(e) => setOvr(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1 py-0.5 text-xs text-right" /></td>
       <td className="px-1 py-1"><input value={nat} onChange={(e) => setNat(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1 py-0.5 text-xs" /></td>
@@ -170,9 +169,11 @@ function InlineEditRow({ p, onSaved, onCancel, onDelete }: { p: SquadPlayer; onS
   );
 }
 const ROLE_RANK: Record<SquadRole, number> = { starting: 4, bench: 3, reserve: 2, loaned: 1 };
-function computeHighlight(p: SquadPlayer, prev: SquadPlayer | undefined, seasonStartYear: number | null): 'up' | 'down' | null {
+function computeHighlight(p: SquadPlayer, prev: SquadPlayer | undefined, seasonStartYear: number | null, hasPrevSeason: boolean): 'up' | 'down' | null {
+  // If there is no previous season at all, don't highlight anything — no baseline to compare to.
+  if (!hasPrevSeason) return null;
   if (!prev) {
-    // Only mark as new signing if since_year matches the season start
+    // New name that wasn't on the previous season roster. Only mark as new signing if since_year matches this season.
     if (seasonStartYear && p.since_year != null && p.since_year < seasonStartYear) return null;
     return 'up';
   }
@@ -271,7 +272,6 @@ function ClubSquad({ t, grouped, players, prevSnapshot, seasonStartYear, onPlaye
                   <th className="text-left px-3 py-2 w-10 cursor-pointer hover:text-emerald-600" onClick={() => toggleSort('jersey')}>{t('th_num')}{arrow('jersey')}</th>
                   <th className="text-left px-3 py-2 w-16 cursor-pointer hover:text-emerald-600" onClick={() => toggleSort('position')}>{t('th_pos')}{arrow('position')}</th>
                   <th className="text-left px-3 py-2 cursor-pointer hover:text-emerald-600" onClick={() => toggleSort('name_snapshot')}>{t('th_name')}{arrow('name_snapshot')}</th>
-                  <th className="text-right px-3 py-2 w-16 cursor-pointer hover:text-emerald-600" onClick={() => toggleSort('formation')} title="Formation (4-1-4-1) — sorts Starting XI only">FORM{arrow('formation')}</th>
                   <th className="text-right px-3 py-2 w-14 cursor-pointer hover:text-emerald-600" onClick={() => toggleSort('age')}>{t('th_age')}{arrow('age')}</th>
                   <th className="text-right px-3 py-2 w-14 cursor-pointer hover:text-emerald-600" onClick={() => toggleSort('ovr')}>{t('th_ovr')}{arrow('ovr')}</th>
                   <th className="text-left px-3 py-2 w-28 cursor-pointer hover:text-emerald-600" onClick={() => toggleSort('nationality_snapshot')}>{t('th_nat')}{arrow('nationality_snapshot')}</th>
@@ -280,16 +280,13 @@ function ClubSquad({ t, grouped, players, prevSnapshot, seasonStartYear, onPlaye
                 </tr>
               </thead>
               <tbody>
-                {grouped[role].length === 0 ? (<tr><td colSpan={9} className="text-center text-slate-400 py-6">{t('no_players')}</td></tr>) : sortRows(grouped[role], role).map((p) => {
+                {grouped[role].length === 0 ? (<tr><td colSpan={8} className="text-center text-slate-400 py-6">{t('no_players')}</td></tr>) : sortRows(grouped[role], role).map((p) => {
                   if (editingId === p.id) return <InlineEditRow key={p.id} p={p} onSaved={() => { setEditingId(null); onReload(); }} onCancel={() => setEditingId(null)} onDelete={() => { setEditingId(null); delPlayer(p.id); }} />;
-                  const hi = computeHighlight(p, prevSnapshot.get(p.name_snapshot.toLowerCase()), seasonStartYear);
-                  const rowBg = hi === 'up' ? 'bg-emerald-100 dark:bg-emerald-900/40' : hi === 'down' ? 'bg-red-100 dark:bg-red-900/40' : '';
                   return (
-                    <tr key={p.id} className={`group border-t border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/60 ${rowBg}`}>
+                    <tr key={p.id} className="group border-t border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/60">
                       <td className={`px-3 py-2 text-slate-500 cursor-pointer ${p.jersey == null ? 'bg-amber-200 dark:bg-amber-800/40' : ''}`} onClick={() => onPlayerClick(p.id)}>{p.jersey ?? '?'}</td>
                       <td className={`px-3 py-2 font-mono cursor-pointer ${!p.position ? 'bg-amber-200 dark:bg-amber-800/40' : ''}`} onClick={() => onPlayerClick(p.id)}>{p.position ?? '?'}</td>
                       <td className={`px-3 py-2 flex items-center gap-2 cursor-pointer ${!p.name_snapshot ? 'bg-amber-200 dark:bg-amber-800/40' : ''}`} onClick={() => onPlayerClick(p.id)}>{p.photo_url ? (<img src={p.photo_url} alt="" className="w-6 h-6 rounded-full object-cover" />) : (<div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] text-slate-500">?</div>)}<span>{p.name_snapshot}</span></td>
-                      <td className="px-3 py-2 text-right text-xs font-mono text-slate-400 cursor-pointer" onClick={() => onPlayerClick(p.id)}>{role === 'starting' ? formationRank(p.position) === 99 ? '—' : formationRank(p.position) : ''}</td>
                       <td className={`px-3 py-2 text-right cursor-pointer ${p.age == null ? 'bg-amber-200 dark:bg-amber-800/40' : ''}`} onClick={() => onPlayerClick(p.id)}>{p.age ?? '?'}</td>
                       <td className={`px-3 py-2 text-right font-semibold cursor-pointer ${p.ovr == null ? 'bg-amber-200 dark:bg-amber-800/40' : ''}`} onClick={() => onPlayerClick(p.id)}>{p.ovr ?? '?'}</td>
                       <td className={`px-3 py-2 cursor-pointer ${!p.nationality_snapshot ? 'bg-amber-200 dark:bg-amber-800/40' : ''}`} onClick={() => onPlayerClick(p.id)}>{p.nationality_snapshot ? (<span className="flex items-center gap-1"><span className="text-base">{flagFor(p.nationality_snapshot)}</span><span>{niceName(p.nationality_snapshot)}</span></span>) : '?'}</td>
@@ -336,7 +333,6 @@ function SquadHub({ t, players, onPlayerClick }: { t: any; players: SquadPlayer[
               <th className="text-left px-3 py-2 w-10 cursor-pointer hover:text-emerald-600" onClick={() => toggle('jersey')}>#{arr('jersey')}</th>
               <th className="text-left px-3 py-2 w-16 cursor-pointer hover:text-emerald-600" onClick={() => toggle('position')}>POS{arr('position')}</th>
               <th className="text-left px-3 py-2 cursor-pointer hover:text-emerald-600" onClick={() => toggle('name_snapshot')}>NAME{arr('name_snapshot')}</th>
-              <th className="text-right px-3 py-2 w-16 cursor-pointer hover:text-emerald-600" onClick={() => toggle('formation')}>FORM{arr('formation')}</th>
               <th className="text-right px-3 py-2 w-14 cursor-pointer hover:text-emerald-600" onClick={() => toggle('age')}>AGE{arr('age')}</th>
               <th className="text-right px-3 py-2 w-14 cursor-pointer hover:text-emerald-600" onClick={() => toggle('ovr')}>OVR{arr('ovr')}</th>
               <th className="text-left px-3 py-2 w-24">STATUS</th>
@@ -345,12 +341,11 @@ function SquadHub({ t, players, onPlayerClick }: { t: any; players: SquadPlayer[
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? (<tr><td colSpan={9} className="text-center text-slate-400 py-6">{t('no_players')}</td></tr>) : rows.map((p) => (
+            {rows.length === 0 ? (<tr><td colSpan={8} className="text-center text-slate-400 py-6">{t('no_players')}</td></tr>) : rows.map((p) => (
               <tr key={p.id} className="border-t border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer" onClick={() => onPlayerClick(p.id)}>
                 <td className="px-3 py-2 text-slate-500">{p.jersey ?? '?'}</td>
                 <td className="px-3 py-2 font-mono">{p.position ?? '?'}</td>
                 <td className="px-3 py-2 flex items-center gap-2">{p.photo_url ? <img src={p.photo_url} alt="" className="w-6 h-6 rounded-full object-cover" /> : <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] text-slate-500">?</div>}<span>{p.name_snapshot}</span></td>
-                <td className="px-3 py-2 text-right text-xs font-mono text-slate-400">{formationRank(p.position) === 99 ? '—' : formationRank(p.position)}</td>
                 <td className="px-3 py-2 text-right">{p.age ?? '?'}</td>
                 <td className="px-3 py-2 text-right font-semibold">{p.ovr ?? '?'}</td>
                 <td className="px-3 py-2"><span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${ROLE_COLOR[p.role]}`}>{ROLE_LABEL[p.role]}</span></td>

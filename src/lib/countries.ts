@@ -39,3 +39,12 @@ export function isoFor(nationality?: string | null): string {
   const c = map[canonical(nationality)];
   return c?.iso ?? '';
 }
+// Sorted unique list of country display names for autocomplete
+export const COUNTRY_NAMES: string[] = Array.from(new Set(Object.values(map).map((c) => c.name))).sort();
+export function isKnownCountry(input?: string | null): boolean {
+  if (!input) return false;
+  const c = map[canonical(input)];
+  if (c) return true;
+  // Also accept the display name directly
+  return COUNTRY_NAMES.some((n) => n.toLowerCase() === input.trim().toLowerCase());
+}

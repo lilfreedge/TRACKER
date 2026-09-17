@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import Autocomplete, { type AutoOption } from './Autocomplete';
-import { flagFor } from '../lib/countries';
+import { flagFor, COUNTRY_NAMES, isKnownCountry } from '../lib/countries';
 import type { SquadRole } from '../types/database';
 
 interface Props { seasonId: string; saveId: string; onReload: () => void; }
@@ -58,6 +58,7 @@ export default function SquadAddPanel({ seasonId, saveId, onReload }: Props) {
 
   async function addOne() {
     if (!name.trim()) return;
+    if (nat && !isKnownCountry(nat)) { alert(`"${nat}" is not a recognized country. Pick one from the list.`); return; }
     setBusy(true);
     if (role === 'starting') {
       const { count } = await supabase.from('squad_players').select('*', { count: 'exact', head: true }).eq('season_id', seasonId).eq('role', 'starting');
@@ -85,16 +86,27 @@ export default function SquadAddPanel({ seasonId, saveId, onReload }: Props) {
     setMode('idle');
   }
 
+  function parseLine(line: string) {
+    // Try tab/comma first
+    if (/\t|,/.test(line)) {
+      const [j, p, n, a, o, na, si] = line.split(/\t|,/).map((c) => c.trim());
+      return { j, p, n, a, o, na, si };
+    }
+    // Fall back to space-separated with regex:
+    // # POS NAME(1+ words) AGE OVR NAT(1+ words) SINCE
+    const m = /^(\S+)\s+(\S+)\s+(.+?)\s+(\d{1,2})\s+(\d{2,3})\s+(.+?)\s+(\d{4})\s*$/.exec(line.trim());
+    if (m) return { j: m[1], p: m[2], n: m[3], a: m[4], o: m[5], na: m[6], si: m[7] };
+    return null;
+  }
   async function bulkPaste() {
     if (!paste.trim()) return;
     setBusy(true); setStatus('Parsing…');
-    // Accept tab or comma separated. Columns: #, POS, NAME, AGE, OVR, NAT, SINCE
     const rows = paste.split('\n').map((l) => l.trim()).filter(Boolean).map((line) => {
-      const parts = line.split(/\t|,/).map((c) => c.trim());
-      const [j, p, n, a, o, na, si] = parts;
-      return { season_id: seasonId, name_snapshot: n ?? '', jersey: Number(j) || null, position: p || null, age: Number(a) || null, ovr: Number(o) || null, nationality_snapshot: na || null, since_year: Number(si) || null, role };
-    }).filter((r) => r.name_snapshot);
-    if (!rows.length) { setBusy(false); setStatus('Nothing to import'); return; }
+      const parts = parseLine(line);
+      if (!parts) return null;
+      return { season_id: seasonId, name_snapshot: parts.n ?? '', jersey: Number(parts.j) || null, position: parts.p || null, age: Number(parts.a) || null, ovr: Number(parts.o) || null, nationality_snapshot: parts.na || null, since_year: Number(parts.si) || null, role };
+    }).filter((r): r is NonNullable<typeof r> => !!r && !!r.name_snapshot);
+    if (!rows.length) { setBusy(false); setStatus('Nothing to import — check format'); return; }
     const { error } = await supabase.from('squad_players').insert(rows);
     setBusy(false);
     if (error) { setStatus('Error: ' + error.message); return; }
@@ -106,9 +118,18 @@ export default function SquadAddPanel({ seasonId, saveId, onReload }: Props) {
     <div className="mb-4 border border-slate-200 dark:border-slate-800 rounded-lg bg-white dark:bg-slate-900">
       <div className="p-3 flex gap-2 flex-wrap items-center border-b border-slate-200 dark:border-slate-800">
         <button onClick={() => setMode(mode === 'add' ? 'idle' : 'add')} className={`text-xs rounded-full px-3 py-1.5 ${mode === 'add' ? 'bg-emerald-600 text-white' : 'border border-slate-300 dark:border-slate-700 hover:border-emerald-400'}`}>+ Add player</button>
-        <button onClick={() => setMode(mode === 'paste' ? 'idle' : 'paste')} className={`text-xs rounded-full px-3 py-1.5 ${mode === 'paste' ? 'bg-emerald-600 text-white' : 'border border-slate-300 dark:border-slate-700 hover:border-emerald-400'}`}>📋 Paste squad</button>
-        {prevSeasonId && <button onClick={copyPrevious} disabled={busy} className="text-xs border border-slate-300 dark:border-slate-700 hover:border-emerald-400 rounded-full px-3 py-1.5">↻ Copy previous season</button>}
-        <button disabled className="text-xs border border-slate-200 dark:border-slate-800 text-slate-400 rounded-full px-3 py-1.5 cursor-not-allowed">📷 Upload photo (v1.6)</button>
+        <button onClick={() => setMode(mode === 'paste' ? 'idle' : 'paste')} className={`text-xs rounded-full px-3 py-1.5 flex items-center gap-1.5 ${mode === 'paste' ? 'bg-emerald-600 text-white' : 'border border-slate-300 dark:border-slate-700 hover:border-emerald-400'}`}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" /><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><path d="M12 11h4" /><path d="M12 16h4" /><path d="M8 11h.01" /><path d="M8 16h.01" /></svg>
+          Bulk import
+        </button>
+        {prevSeasonId && <button onClick={copyPrevious} disabled={busy} className="text-xs border border-slate-300 dark:border-slate-700 hover:border-emerald-400 rounded-full px-3 py-1.5 flex items-center gap-1.5">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /></svg>
+          Copy previous season
+        </button>}
+        <button disabled className="text-xs border border-slate-200 dark:border-slate-800 text-slate-400 rounded-full px-3 py-1.5 cursor-not-allowed flex items-center gap-1.5">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" /><circle cx="12" cy="13" r="3" /></svg>
+          Upload photo (v1.7)
+        </button>
         {status && <span className="text-xs text-slate-500 ml-auto">{status}</span>}
       </div>
 
@@ -126,7 +147,7 @@ export default function SquadAddPanel({ seasonId, saveId, onReload }: Props) {
           </div>
           <input value={age} onChange={(e) => setAge(e.target.value)} placeholder="Age" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-2 py-1.5" />
           <input value={ovr} onChange={(e) => setOvr(e.target.value)} placeholder="OVR" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-2 py-1.5" />
-          <input value={nat} onChange={(e) => setNat(e.target.value)} placeholder="NAT" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-2 py-1.5" />
+          <Autocomplete value={nat} onChange={(v) => setNat(v)} options={COUNTRY_NAMES.map((n) => ({ value: n, label: n }))} placeholder="NAT" />
           <input value={since} onChange={(e) => setSince(e.target.value)} placeholder="Since" className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-2 py-1.5" />
           <div className="sm:col-span-8 flex justify-end gap-2">
             <button onClick={() => setMode('idle')} className="text-xs text-slate-500 px-3">Cancel</button>
