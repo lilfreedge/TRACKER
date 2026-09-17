@@ -56,7 +56,7 @@ export default function SavePage() {
     const insertPayload: any = {
       save_id: saveId,
       label,
-      team_id: contract.team_catalog_id ?? null,
+      team_id: null,
       team_name_snapshot: contract.team_name,
       team_color: contract.team_color,
       club_since_year: contract.signed_year,

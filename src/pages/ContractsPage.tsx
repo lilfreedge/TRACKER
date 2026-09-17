@@ -118,7 +118,7 @@ export default function ContractsPage() {
           await supabase.from('seasons').insert({
             save_id: saveId,
             label,
-            team_id: f.catalogId,
+            team_id: null,
             team_name_snapshot: f.team.trim(),
             team_color: f.color || null,
             club_since_year: y,
